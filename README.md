@@ -68,7 +68,7 @@ HksUtil/
 │   ├── preferences.json # Registry-based toggles
 │   ├── themes.json      # Dark/Light color schemes
 │   └── dns.json         # DNS provider list
-└── Tweaks/              # Tweak documentation
+
 ```
 
 ## Customization
