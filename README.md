@@ -5,13 +5,13 @@ A Windows optimization and app management tool built with PowerShell and WPF. Da
 ## Quick Start
 
 ```powershell
-irm "https://raw.githubusercontent.com/YOUR_USER/HksUtil/main/launcher.ps1" | iex
+irm "https://raw.githubusercontent.com/hartkitsak/HksUtil/main/launcher.ps1" | iex
 ```
 
 Or clone and run locally:
 
 ```powershell
-git clone https://github.com/YOUR_USER/HksUtil.git
+git clone https://github.com/hartkitsak/HksUtil.git
 cd HksUtil
 .\app.ps1
 ```
