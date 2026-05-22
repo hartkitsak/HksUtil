@@ -1,0 +1,8 @@
+*.bak
+*.log
+*.tmp
+*.user
+*.suo
+.DS_Store
+Thumbs.db
+app.ps1.bak

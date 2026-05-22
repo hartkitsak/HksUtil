@@ -1,0 +1,144 @@
+{
+  "Browsers": {
+    "brave": {
+      "content": "Brave",
+      "winget": "Brave.Brave",
+      "description": "Privacy-first browser with built-in ad blocker"
+    },
+    "firefox": {
+      "content": "Firefox",
+      "winget": "Mozilla.Firefox",
+      "description": "Privacy-focused web browser"
+    }
+  },
+  "Development": {
+    "vscode": {
+      "content": "VS Code",
+      "winget": "Microsoft.VisualStudioCode",
+      "description": "Lightweight source code editor"
+    },
+    "git": {
+      "content": "Git",
+      "winget": "Git.Git",
+      "description": "Distributed version control system"
+    },
+    "nodejs": {
+      "content": "Node.js LTS",
+      "winget": "OpenJS.NodeJS.LTS",
+      "description": "JavaScript runtime built on Chrome's V8 engine"
+    },
+    "python": {
+      "content": "Python 3.12",
+      "winget": "Python.Python.3.12",
+      "description": "High-level programming language"
+    },
+    "windows_terminal": {
+      "content": "Windows Terminal",
+      "winget": "Microsoft.WindowsTerminal",
+      "description": "Modern terminal application for Windows"
+    },
+    "powershell": {
+      "content": "PowerShell 7",
+      "winget": "Microsoft.PowerShell",
+      "description": "Cross-platform shell and scripting language"
+    },
+    "ohmyposh": {
+      "content": "Oh My Posh",
+      "winget": "JanDeDobbeleer.OhMyPosh",
+      "description": "Prompt theme engine for any shell"
+    },
+    "ffmpeg": {
+      "content": "FFmpeg",
+      "winget": "Gyan.FFmpeg",
+      "description": "Video and audio recording/conversion tool"
+    }
+  },
+  "Media": {
+    "obs": {
+      "content": "OBS Studio",
+      "winget": "OBSProject.OBSStudio",
+      "description": "Video recording and live streaming software"
+    },
+    "mpchc": {
+      "content": "MPC-HC",
+      "winget": "clsid2.mpc-hc",
+      "description": "Lightweight media player"
+    },
+    "foobar2000": {
+      "content": "foobar2000",
+      "winget": "PeterPawlowski.foobar2000",
+      "description": "Advanced audio player"
+    },
+    "ytdlp": {
+      "content": "yt-dlp",
+      "winget": "yt-dlp.yt-dlp",
+      "description": "Command-line video downloader"
+    },
+    "vlc": {
+      "content": "VLC",
+      "winget": "VideoLAN.VLC",
+      "description": "Free and open source multimedia player"
+    },
+    "sharex": {
+      "content": "ShareX",
+      "winget": "ShareX.ShareX",
+      "description": "Screen capture and file sharing tool"
+    }
+  },
+  "Utilities": {
+    "7zip_zs": {
+      "content": "7-Zip ZS",
+      "winget": "mcmilk.7zip-zstd",
+      "description": "File archiver with Zstandard support"
+    },
+    "revo": {
+      "content": "Revo Uninstaller",
+      "winget": "RevoUninstaller.RevoUninstaller",
+      "description": "Advanced uninstaller tool"
+    },
+    "wise_regcleaner": {
+      "content": "Wise Registry Cleaner",
+      "winget": "WiseCleaner.WiseRegistryCleaner",
+      "description": "Registry cleaner and optimizer"
+    },
+    "bitwarden": {
+      "content": "Bitwarden",
+      "winget": "Bitwarden.Bitwarden",
+      "description": "Open source password manager"
+    },
+    "mobaxterm": {
+      "content": "MobaXterm",
+      "winget": "Mobatek.MobaXterm",
+      "description": "Enhanced terminal with X11 server"
+    },
+    "motrix": {
+      "content": "Motrix",
+      "winget": "Motrix.Motrix",
+      "description": "Full-featured download manager"
+    },
+    "notion": {
+      "content": "Notion",
+      "winget": "Notion.Notion",
+      "description": "All-in-one workspace for notes and tasks"
+    }
+  },
+  "Communication": {
+    "discord": {
+      "content": "Discord",
+      "winget": "Discord.Discord",
+      "description": "Voice, video and text chat for communities"
+    },
+    "telegram": {
+      "content": "Telegram",
+      "winget": "Telegram.TelegramDesktop",
+      "description": "Cloud-based messaging app"
+    }
+  },
+  "Gaming": {
+    "steam": {
+      "content": "Steam",
+      "winget": "Valve.Steam",
+      "description": "Digital distribution platform for games"
+    }
+  }
+}
