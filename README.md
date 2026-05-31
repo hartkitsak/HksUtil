@@ -66,8 +66,10 @@ HksUtil/
 │   ├── tweaks.json      # Tweak definitions
 │   ├── features.json    # Features & fixes
 │   ├── preferences.json # Registry-based toggles
-│   ├── themes.json      # Dark/Light color schemes
 │   └── dns.json         # DNS provider list
+├── themes/
+│   ├── Dark.xaml        # Dark theme ResourceDictionary
+│   └── Light.xaml       # Light theme ResourceDictionary
 
 ```
 

@@ -3,6 +3,7 @@
 *.tmp
 *.user
 *.suo
+*.lnk
 .DS_Store
 Thumbs.db
 app.ps1.bak

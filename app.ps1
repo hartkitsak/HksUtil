@@ -27,6 +27,8 @@ function Show-Info {
 }
 
 $script:installedAppIds = @{}
+$script:currentTheme = "Dark"
+
 function Set-Status {
     param([string]$Text)
     if ($controls["StatusText"]) { $controls["StatusText"].Text = $Text }
@@ -54,6 +56,22 @@ if (-not $isAdmin) {
 
 Write-Log "HksUtil v2.0 Starting..." "Header"
 
+# --- Theme System ---
+function Apply-Theme {
+    param([string]$themeName)
+    $themeFile = Join-Path $PSScriptRoot "themes\$themeName.xaml"
+    if (-not (Test-Path $themeFile)) { Write-Log "Theme file not found: $themeFile" "Error"; return }
+    try {
+        [xml]$xml = Get-Content $themeFile -Raw
+        $rd = [Windows.Markup.XamlReader]::Load((New-Object System.Xml.XmlNodeReader $xml))
+        $window.Resources.MergedDictionaries.Clear()
+        $window.Resources.MergedDictionaries.Add($rd)
+        $script:currentTheme = $themeName
+        if ($controls -and $controls["CurrentThemeLabel"]) { $controls["CurrentThemeLabel"].Text = $themeName }
+        Write-Log "Theme applied: $themeName" "Success"
+    } catch { Write-Log "Theme apply failed: $_" "Error" }
+}
+
 # Load UI
 try {
     $xamlPath = Join-Path $PSScriptRoot "ui.xaml"
@@ -62,6 +80,7 @@ try {
     [xml]$xaml = $xamlContent
     $reader = New-Object System.Xml.XmlNodeReader $xaml
     $window = [Windows.Markup.XamlReader]::Load($reader)
+    Apply-Theme "Dark"
 } catch { Write-Log "FATAL ERROR loading UI: $_" "Error"; pause; exit }
 
 $controls = @{}
@@ -73,7 +92,7 @@ Write-Log "Loading configs..." "Info"
 
 try { $appsConfig = Get-Content (Join-Path $configPath "apps.json") -Raw | ConvertFrom-Json; Write-Log "apps.json ($($appsConfig.PSObject.Properties.Name.Count) categories)" "Success" } catch { Write-Log "apps.json failed: $_" "Error"; $appsConfig = @{} }
 try { $tweaksConfig = Get-Content (Join-Path $configPath "tweaks.json") -Raw | ConvertFrom-Json; Write-Log "tweaks.json ($($tweaksConfig.PSObject.Properties.Name.Count) groups)" "Success" } catch { Write-Log "tweaks.json failed: $_" "Error"; $tweaksConfig = @{} }
-try { $themesConfig = Get-Content (Join-Path $configPath "themes.json") -Raw | ConvertFrom-Json; Write-Log "themes.json ($($themesConfig.PSObject.Properties.Name.Count) themes)" "Success" } catch { Write-Log "themes.json failed: $_" "Error"; $themesConfig = @{} }
+
 try { $dnsConfig = Get-Content (Join-Path $configPath "dns.json") -Raw | ConvertFrom-Json; Write-Log "dns.json ($($dnsConfig.PSObject.Properties.Name.Count) providers)" "Success" } catch { Write-Log "dns.json failed: $_" "Error"; $dnsConfig = @{} }
 try { $prefsConfig = Get-Content (Join-Path $configPath "preferences.json") -Raw | ConvertFrom-Json; Write-Log "preferences.json ($($prefsConfig.PSObject.Properties.Name.Count) preferences)" "Success" } catch { Write-Log "preferences.json failed: $_" "Error"; $prefsConfig = @{} }
 try { $featuresConfig = Get-Content (Join-Path $configPath "features.json") -Raw | ConvertFrom-Json; Write-Log "features.json ($($featuresConfig.PSObject.Properties.Name.Count) sections)" "Success" } catch { Write-Log "features.json failed: $_" "Error"; $featuresConfig = @{} }
@@ -202,70 +221,6 @@ function Invoke-UndoTweaks {
     Write-Log "All tweaks undone." "Header"
 }
 
-# --- Theme System ---
-$script:currentTheme = "Dark"
-$script:allThemeableControls = @()
-$script:originalBorderBrushes = @{}
-
-function Register-ThemeableControl { param($control, $type); $script:allThemeableControls += @{ Control = $control; Type = $type } }
-
-function Apply-Theme {
-    param([string]$themeName)
-    if (-not $themesConfig.PSObject.Properties.Name -contains $themeName) { Write-Log "Theme not found: $themeName" "Error"; return }
-    
-    $theme = $themesConfig.$themeName; $colors = $theme.colors
-    $window.Background = $colors.windowBackground
-    if ($controls["SidebarBorder"]) { $controls["SidebarBorder"].Background = $colors.headerBackground; $controls["SidebarBorder"].BorderBrush = $colors.headerBorder }
-    if ($controls["TitleText"]) { $controls["TitleText"].Foreground = $colors.accentColor }
-    if ($controls["SubtitleText"]) { $controls["SubtitleText"].Foreground = $colors.textMuted }
-    if ($controls["StatusBar"]) { $controls["StatusBar"].Background = $colors.footerBackground; $controls["StatusBar"].BorderBrush = $colors.footerBorder }
-    if ($controls["StatusText"]) { $controls["StatusText"].Foreground = $colors.textMuted }
-    
-    $pageTitleKeys = @("TitleInstall","TitleTweaks","TitleFeatures","TitlePreferences","TitleClean","TitleLegacy","TitleSettings")
-    foreach ($k in $pageTitleKeys) { if ($controls[$k]) { $controls[$k].Foreground = $colors.pageTitleColor } }
-    $pageDescKeys = @("DescInstall","DescTweaks","DescFeatures","DescPreferences","DescClean","DescLegacy","DescSettings")
-    foreach ($k in $pageDescKeys) { if ($controls[$k]) { $controls[$k].Foreground = $colors.textMuted } }
-    
-    $sectionHeaderKeys = @("FeaturesSectionHeader","FixesSectionHeader")
-    foreach ($k in $sectionHeaderKeys) { if ($controls[$k]) { $controls[$k].Foreground = $colors.categoryHeaderColor } }
-    
-    $borderKeys = @("PkgSelectionBorder","PrefsBorder")
-    foreach ($k in $borderKeys) { if ($controls[$k]) { $controls[$k].Background = $colors.cardBackground; $controls[$k].BorderBrush = $colors.cardBorder } }
-    
-    if ($controls["BtnClearSearch"]) { $controls["BtnClearSearch"].Background = $colors.textBoxBackground; $controls["BtnClearSearch"].BorderBrush = $colors.textBoxBorder }
-    if ($controls["SearchHint"]) { $controls["SearchHint"].Foreground = $colors.textMuted }
-    if ($controls["ChkShowInstalled"]) { $controls["ChkShowInstalled"].Foreground = $colors.cardForeground }
-    if ($controls["LblSelectedCount"]) { $controls["LblSelectedCount"].Foreground = $colors.textMuted }
-    if ($controls["LabelPkgMgr"]) { $controls["LabelPkgMgr"].Foreground = $colors.textMuted }
-    if ($controls["LabelTheme"]) { $controls["LabelTheme"].Foreground = $colors.cardForeground }
-    if ($controls["LabelDns"]) { $controls["LabelDns"].Foreground = $colors.cardForeground }
-    if ($controls["CurrentThemeLabel"]) { $controls["CurrentThemeLabel"].Foreground = $colors.textMuted }
-    
-    foreach ($item in $script:allThemeableControls) {
-        $ctrl = $item.Control
-        switch ($item.Type) {
-            "CategoryHeader" { $ctrl.Foreground = $colors.categoryHeaderColor }
-            "AppCard" {
-                $ctrl.Background = $colors.cardBackground; $ctrl.Foreground = $colors.cardForeground
-                if ($script:originalBorderBrushes.ContainsKey($ctrl) -and $ctrl.BorderBrush.ToString() -eq "#22C55E") {} else { $ctrl.BorderBrush = $colors.cardBorder }
-            }
-            "TweakCard" { $ctrl.Background = $colors.cardBackground; $ctrl.Foreground = $colors.cardForeground; $ctrl.BorderBrush = $colors.cardBorder }
-            "TextBox" { $ctrl.Background = $colors.textBoxBackground; $ctrl.Foreground = $colors.textBoxForeground; $ctrl.BorderBrush = $colors.textBoxBorder }
-            "ComboBox" { $ctrl.Background = $colors.textBoxBackground; $ctrl.Foreground = $colors.textBoxForeground; $ctrl.BorderBrush = $colors.textBoxBorder }
-            "TweakHeader" { $ctrl.Foreground = $colors.categoryHeaderColor }
-            "FeatureCard" { $ctrl.Background = $colors.cardBackground; $ctrl.Foreground = $colors.cardForeground; $ctrl.BorderBrush = $colors.cardBorder }
-            "LegacyTitle" { $ctrl.Foreground = $colors.pageTitleColor }
-            "LegacyDesc" { $ctrl.Foreground = $colors.textMuted }
-            "Page" { $ctrl.Background = $colors.windowBackground }
-            "NavButton" { }
-        }
-    }
-    
-    $script:currentTheme = $themeName
-    if ($controls["CurrentThemeLabel"]) { $controls["CurrentThemeLabel"].Text = $themeName }
-    Write-Log "Theme applied: $themeName" "Success"
-}
-
 # --- Build Apps UI ---
 $appCheckboxes = @()
 $appPanelIndex = 0
@@ -279,7 +234,6 @@ if (($controls["AppPanel1"] -and $controls["AppPanel2"] -and $controls["AppPanel
         $header.Text = "+ $($category.ToUpper()) ($catCount)"; $header.Style = $window.FindResource("CategoryHeader"); $header.Cursor = "Hand"
         $header.Tag = $category
         $appPanels[$appPanelIndex].Children.Add($header) | Out-Null
-        Register-ThemeableControl $header "CategoryHeader"
         $script:categoryItems[$category] = @()
         
         $header.Add_MouseLeftButtonDown({
@@ -301,7 +255,6 @@ if (($controls["AppPanel1"] -and $controls["AppPanel2"] -and $controls["AppPanel
             $cb.Add_Unchecked({ Update-SelectedCount })
             $appPanels[$appPanelIndex].Children.Add($cb) | Out-Null
             $appCheckboxes += $cb
-            Register-ThemeableControl $cb "TweakCard"
             $script:categoryItems[$category] += $cb
         }
         $appPanelIndex = ($appPanelIndex + 1) % 3
@@ -355,7 +308,6 @@ if ($controls["PrefsWrapPanel"] -and $prefsConfig) {
         
         $controls["PrefsWrapPanel"].Children.Add($cb) | Out-Null
         $prefCheckboxes[$prefKey] = $cb
-        Register-ThemeableControl $cb "TweakCard"
     }
     Write-Log "Built $($prefCheckboxes.Count) preference toggles." "Success"
 }
@@ -369,9 +321,9 @@ if ($controls["TweaksPanel1"] -and $controls["TweaksPanel2"] -and $controls["Twe
         $group = $tweaksConfig.$groupKey
         $header = New-Object System.Windows.Controls.TextBlock
         $header.Text = $groupKey; $header.FontSize = 16; $header.FontWeight = "Bold"
-        $header.Foreground = "#3B82F6"; $header.Margin = "0,0,0,10"
+        $header.SetResourceReference([System.Windows.Controls.TextBlock]::ForegroundProperty, "categoryHeaderColor")
+        $header.Margin = "0,0,0,10"
         $panels[$panelIndex].Children.Add($header) | Out-Null
-        Register-ThemeableControl $header "TweakHeader"
         
         foreach ($tweakKey in $group.PSObject.Properties.Name) {
             $tweak = $group.$tweakKey
@@ -380,7 +332,6 @@ if ($controls["TweaksPanel1"] -and $controls["TweaksPanel2"] -and $controls["Twe
             if ($tweak.description) { $cb.ToolTip = $tweak.description }
             $panels[$panelIndex].Children.Add($cb) | Out-Null
             $tweakCheckboxes += $cb
-            Register-ThemeableControl $cb "TweakCard"
         }
         $panelIndex = ($panelIndex + 1) % 3
     }
@@ -400,7 +351,6 @@ if ($controls["FeaturesPanel1"] -and $controls["FeaturesPanel2"] -and $featuresC
         if ($feat.description) { $cb.ToolTip = $feat.description }
         $panels[$panelIndex].Children.Add($cb) | Out-Null
         $featuresCheckboxes += $cb
-        Register-ThemeableControl $cb "TweakCard"
         $panelIndex = ($panelIndex + 1) % 2
     }
     Write-Log "Built $($featuresCheckboxes.Count) feature checkboxes." "Success"
@@ -421,7 +371,6 @@ if ($controls["FixesWrapPanel"] -and $featuresConfig -and $featuresConfig.PSObje
             try { Invoke-Expression $f.script; Write-Log "Fix completed: $($f.content)" "Success"; Show-Info "Fix Complete" "$($f.content)`n`nCompleted successfully." } catch { Write-Log "Fix failed: $_" "Error"; Show-Info "Fix Failed" "$($f.content)`n`nError: $_" }
         })
         $controls["FixesWrapPanel"].Children.Add($btn) | Out-Null
-        Register-ThemeableControl $btn "FeatureCard"
     }
     Write-Log "Built $($fixes.PSObject.Properties.Name.Count) fix buttons." "Success"
 }
@@ -460,17 +409,15 @@ if ($controls["LegacyWrapPanel"]) {
         $nameTb.Text = $panel.Name
         $nameTb.FontSize = 13
         $nameTb.FontWeight = "SemiBold"
-        $nameTb.Foreground = "White"
-        Register-ThemeableControl $nameTb "LegacyTitle"
+        $nameTb.SetResourceReference([System.Windows.Controls.TextBlock]::ForegroundProperty, "pageTitleColor")
         $textSp.Children.Add($nameTb) | Out-Null
 
         $descTb = New-Object System.Windows.Controls.TextBlock
         $descTb.Text = $panel.Desc
         $descTb.FontSize = 11
-        $descTb.Foreground = "#888888"
+        $descTb.SetResourceReference([System.Windows.Controls.TextBlock]::ForegroundProperty, "textMuted")
         $descTb.TextWrapping = "Wrap"
         $descTb.MaxWidth = 280
-        Register-ThemeableControl $descTb "LegacyDesc"
         $textSp.Children.Add($descTb) | Out-Null
 
         $sp.Children.Add($textSp) | Out-Null
@@ -489,21 +436,19 @@ if ($controls["LegacyWrapPanel"]) {
         })
 
         $controls["LegacyWrapPanel"].Children.Add($btn) | Out-Null
-        Register-ThemeableControl $btn "FeatureCard"
     }
     Write-Log "Built $($legacyPanels.Count) legacy panel buttons." "Success"
 }
 
 # --- Build Settings UI ---
-if ($controls["SearchBox"]) { Register-ThemeableControl $controls["SearchBox"] "TextBox" }
-if ($controls["PkgWinGet"]) { Register-ThemeableControl $controls["PkgWinGet"] "TweakCard" }
-if ($controls["PkgChoco"]) { Register-ThemeableControl $controls["PkgChoco"] "TweakCard" }
-
-if ($controls["ThemeSelector"] -and $themesConfig) {
-    Register-ThemeableControl $controls["ThemeSelector"] "ComboBox"
-    foreach ($themeName in $themesConfig.PSObject.Properties.Name) {
-        $item = New-Object System.Windows.Controls.ComboBoxItem; $item.Content = $themeName
-        $controls["ThemeSelector"].Items.Add($item) | Out-Null
+if ($controls["ThemeSelector"]) {
+    $themeDir = Join-Path $PSScriptRoot "themes"
+    if (Test-Path $themeDir) {
+        Get-ChildItem $themeDir -Filter "*.xaml" | ForEach-Object {
+            $themeName = $_.BaseName
+            $item = New-Object System.Windows.Controls.ComboBoxItem; $item.Content = $themeName
+            $controls["ThemeSelector"].Items.Add($item) | Out-Null
+        }
     }
     $controls["ThemeSelector"].Add_SelectionChanged({
         $selected = $controls["ThemeSelector"].SelectedItem
@@ -515,7 +460,6 @@ if ($controls["ThemeSelector"] -and $themesConfig) {
 }
 
 if ($controls["DnsSelector"] -and $dnsConfig) {
-    Register-ThemeableControl $controls["DnsSelector"] "ComboBox"
     foreach ($dnsName in $dnsConfig.PSObject.Properties.Name) {
         $item = New-Object System.Windows.Controls.ComboBoxItem; $item.Content = "$dnsName ($($dnsConfig.$dnsName.description))"
         $item.Tag = $dnsName
@@ -559,6 +503,44 @@ if ($controls["BtnApplyDns"]) {
         }
     })
 }
+
+# --- Utility Buttons ---
+$script:desktopShortcutPath = Join-Path ([Environment]::GetFolderPath("Desktop")) "HksUtil.lnk"
+
+$controls["BtnCreateShortcut"].Add_Click({
+    $lnkPath = $script:desktopShortcutPath
+    if (Test-Path $lnkPath) { Write-Log "Shortcut already exists." "Warn"; return }
+    try {
+        $wshell = New-Object -ComObject WScript.Shell
+        $sc = $wshell.CreateShortcut($lnkPath)
+        $sc.TargetPath = "powershell.exe"
+        $sc.Arguments = '-NoProfile -ExecutionPolicy Bypass -Command "irm https://raw.githubusercontent.com/hartkitsak/HksUtil/main/launcher.ps1 | iex"'
+        $sc.Description = "HksUtil v2.0 - Windows Optimizer"
+        $sc.IconLocation = "powershell.exe,0"
+        $sc.Save()
+        Write-Log "Desktop shortcut created." "Success"
+    } catch { Write-Log "Shortcut creation failed: $_" "Error" }
+})
+
+function Invoke-TerminalAction {
+    param([string]$Action)
+    $scriptName = if ($Action -eq "install") { "install.ps1" } else { "uninstall.ps1" }
+    $url = "https://raw.githubusercontent.com/hartkitsak/Terminal-Dotfiles/master/$scriptName"
+    Start-Process powershell.exe -ArgumentList "-NoProfile -ExecutionPolicy Bypass -Command `"irm '$url' | iex`"" -WindowStyle Normal
+}
+
+$controls["BtnTerminalDotfiles"].Add_Click({
+    Write-Log "Launching Terminal Dotfiles installer..." "Header"
+    try { Invoke-TerminalAction "install"; Write-Log "Terminal Dotfiles installer launched." "Success" }
+    catch { Write-Log "Terminal Dotfiles install failed: $_" "Error" }
+})
+
+$controls["BtnUninstallTerminal"].Add_Click({
+    if (-not (Show-Confirm "Uninstall" "Uninstall Terminal Dotfiles? This will remove custom profiles and themes.")) { return }
+    Write-Log "Launching Terminal Dotfiles uninstaller..." "Header"
+    try { Invoke-TerminalAction "uninstall"; Write-Log "Terminal Dotfiles uninstaller launched." "Warn" }
+    catch { Write-Log "Terminal Dotfiles uninstall failed: $_" "Error" }
+})
 
 if ($controls["BtnResetSettings"]) {
     $controls["BtnResetSettings"].Add_Click({
