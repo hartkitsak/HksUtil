@@ -524,9 +524,11 @@ $controls["BtnCreateShortcut"].Add_Click({
 
 function Invoke-TerminalAction {
     param([string]$Action)
-    $scriptName = if ($Action -eq "install") { "install.ps1" } else { "uninstall.ps1" }
-    $url = "https://raw.githubusercontent.com/hartkitsak/Terminal-Dotfiles/master/$scriptName"
-    Start-Process powershell.exe -ArgumentList "-NoProfile -ExecutionPolicy Bypass -Command `"irm '$url' | iex`"" -WindowStyle Normal
+    $url = if ($Action -eq "install") { "https://raw.githubusercontent.com/hartkitsak/Terminal-Dotfiles/master/install.ps1" } else { "https://raw.githubusercontent.com/hartkitsak/Terminal-Dotfiles/master/uninstall.ps1" }
+    $cmd = "irm '$url' | iex"
+    $bytes = [System.Text.Encoding]::Unicode.GetBytes($cmd)
+    $encoded = [Convert]::ToBase64String($bytes)
+    Start-Process powershell.exe -ArgumentList "-NoProfile -ExecutionPolicy Bypass -EncodedCommand $encoded" -WindowStyle Normal
 }
 
 $controls["BtnTerminalDotfiles"].Add_Click({
