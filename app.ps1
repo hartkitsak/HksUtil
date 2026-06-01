@@ -129,8 +129,6 @@ function Switch-Page {
         if ($pages[$key]) { $pages[$key].Visibility = if ($key -eq $pageName) { "Visible" } else { "Collapsed" } }
     }
     
-    if ($controls["TweaksButtonBar"]) { $controls["TweaksButtonBar"].Visibility = if ($pageName -eq "Tweaks") { "Visible" } else { "Collapsed" } }
-    
     foreach ($key in $navButtons.Keys) {
         $btn = $navButtons[$key]
         if ($btn) {
@@ -307,12 +305,30 @@ if ($controls["BtnApplyDns"]) {
     })
 }
 
+# --- Terminal Profile ---
+function Invoke-TerminalAction {
+    param([string]$Action)
+    $url = if ($Action -eq "install") { "https://raw.githubusercontent.com/hartkitsak/Terminal-Dotfiles/master/install.ps1" } else { "https://raw.githubusercontent.com/hartkitsak/Terminal-Dotfiles/master/uninstall.ps1" }
+    $cmd = "irm '$url' | iex"
+    $bytes = [System.Text.Encoding]::Unicode.GetBytes($cmd)
+    $encoded = [Convert]::ToBase64String($bytes)
+    Start-Process -FilePath "powershell.exe" -ArgumentList "-NoProfile -ExecutionPolicy Bypass -EncodedCommand $encoded" -WindowStyle Hidden
+}
 
 if ($controls["BtnTerminalDotfiles"]) {
     $controls["BtnTerminalDotfiles"].Add_Click({
         Write-Log "Launching Terminal Dotfiles installer..." "Header"
         try { Invoke-TerminalAction "install"; Write-Log "Terminal Dotfiles installer launched." "Success" }
         catch { Write-Log "Terminal Dotfiles install failed: $_" "Error" }
+    })
+}
+
+if ($controls["BtnUninstallTerminal"]) {
+    $controls["BtnUninstallTerminal"].Add_Click({
+        if (-not (Show-Confirm "Uninstall" "Uninstall Terminal Dotfiles? This will remove custom profiles and themes.")) { return }
+        Write-Log "Launching Terminal Dotfiles uninstaller..." "Header"
+        try { Invoke-TerminalAction "uninstall"; Write-Log "Terminal Dotfiles uninstaller launched." "Warn" }
+        catch { Write-Log "Terminal Dotfiles uninstall failed: $_" "Error" }
     })
 }
 

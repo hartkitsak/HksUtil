@@ -184,8 +184,8 @@
     "WPFTweaksWidget": {
       "content": "Widgets - Remove",
       "description": "Removes the annoying widgets in the bottom left of the Taskbar.",
-      "script": "# Sometimes if you dont stop the Widgets process the removal may fail\n\nGet-Process *Widget* | Stop-Process\nGet-AppxPackage Microsoft.WidgetsPlatformRuntime -AllUsers | Remove-AppxPackage -AllUsers\nGet-AppxPackage MicrosoftWindows.Client.WebExperience -AllUsers | Remove-AppxPackage -AllUsers\n\nStop-Process -Name explorer -Force\nWrite-Host \"Removed widgets\"",
-      "undoScript": "Write-Host \"Restoring widgets AppxPackages\"\n\nAdd-AppxPackage -Register \"C:\\Program Files\\WindowsApps\\Microsoft.WidgetsPlatformRuntime*\\AppxManifest.xml\" -DisableDevelopmentMode\nAdd-AppxPackage -Register \"C:\\Program Files\\WindowsApps\\MicrosoftWindows.Client.WebExperience*\\AppxManifest.xml\" -DisableDevelopmentMode\n\nStop-Process -Name explorer -Force"
+      "script": "# Sometimes if you dont stop the Widgets process the removal may fail\n\nGet-Process *Widget* | Stop-Process\nGet-AppxPackage Microsoft.WidgetsPlatformRuntime -AllUsers | Remove-AppxPackage -AllUsers\nGet-AppxPackage MicrosoftWindows.Client.WebExperience -AllUsers | Remove-AppxPackage -AllUsers\n\nInvoke-WinUtilExplorerUpdate -action \"restart\"\nWrite-Host \"Removed widgets\"",
+      "undoScript": "Write-Host \"Restoring widgets AppxPackages\"\n\nAdd-AppxPackage -Register \"C:\\Program Files\\WindowsApps\\Microsoft.WidgetsPlatformRuntime*\\AppxManifest.xml\" -DisableDevelopmentMode\nAdd-AppxPackage -Register \"C:\\Program Files\\WindowsApps\\MicrosoftWindows.Client.WebExperience*\\AppxManifest.xml\" -DisableDevelopmentMode\n\nInvoke-WinUtilExplorerUpdate -action \"restart\""
     },
     "WPFTweaksWPBT": {
       "content": "Windows Platform Binary Table (WPBT) - Disable",
