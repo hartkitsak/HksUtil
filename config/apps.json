@@ -9,6 +9,33 @@
       "content": "Firefox",
       "winget": "Mozilla.Firefox",
       "description": "Privacy-focused web browser"
+    },
+    "tor": {
+      "content": "Tor Browser",
+      "winget": "TorProject.TorBrowser",
+      "description": "Anonymous web browsing via Tor network"
+    }
+  },
+  "Security & Privacy": {
+    "mullvad": {
+      "content": "Mullvad VPN",
+      "winget": "Mullvad.MullvadVPN",
+      "description": "Privacy-focused VPN service"
+    },
+    "protonvpn": {
+      "content": "ProtonVPN",
+      "winget": "Proton.ProtonVPN",
+      "description": "Secure VPN with no-logs policy"
+    },
+    "malwarebytes": {
+      "content": "Malwarebytes",
+      "winget": "Malwarebytes.Malwarebytes",
+      "description": "On-demand malware scanner and remover"
+    },
+    "veracrypt": {
+      "content": "VeraCrypt",
+      "winget": "IDRIX.VeraCrypt",
+      "description": "Disk encryption software for files and partitions"
     }
   },
   "Development": {
@@ -16,6 +43,26 @@
       "content": "VS Code",
       "winget": "Microsoft.VisualStudioCode",
       "description": "Lightweight source code editor"
+    },
+    "github_desktop": {
+      "content": "GitHub Desktop",
+      "winget": "GitHub.GitHubDesktop",
+      "description": "GUI for Git and GitHub"
+    },
+    "docker": {
+      "content": "Docker Desktop",
+      "winget": "Docker.DockerDesktop",
+      "description": "Container platform for dev and test"
+    },
+    "dbeaver": {
+      "content": "DBeaver",
+      "winget": "DBeaver.DBeaver",
+      "description": "Universal database manager"
+    },
+    "bruno": {
+      "content": "Bruno",
+      "winget": "Bruno.Bruno",
+      "description": "Offline-first API testing client"
     },
     "git": {
       "content": "Git",
@@ -46,23 +93,48 @@
       "content": "Oh My Posh",
       "winget": "JanDeDobbeleer.OhMyPosh",
       "description": "Prompt theme engine for any shell"
-    },
-    "ffmpeg": {
-      "content": "FFmpeg",
-      "winget": "Gyan.FFmpeg",
-      "description": "Video and audio recording/conversion tool"
     }
   },
-  "Media": {
+  "Media & Creative": {
+    "gimp": {
+      "content": "GIMP",
+      "winget": "GIMP.GIMP",
+      "description": "Free and open-source image editor"
+    },
+    "krita": {
+      "content": "Krita",
+      "winget": "Krita.Krita",
+      "description": "Professional digital painting tool"
+    },
+    "inkscape": {
+      "content": "Inkscape",
+      "winget": "Inkscape.Inkscape",
+      "description": "Vector graphics editor"
+    },
+    "kdenlive": {
+      "content": "Kdenlive",
+      "winget": "KDE.Kdenlive",
+      "description": "Free and open-source video editor"
+    },
     "obs": {
       "content": "OBS Studio",
       "winget": "OBSProject.OBSStudio",
       "description": "Video recording and live streaming software"
     },
+    "audacity": {
+      "content": "Audacity",
+      "winget": "Audacity.Audacity",
+      "description": "Multi-track audio recorder and editor"
+    },
     "mpchc": {
       "content": "MPC-HC",
       "winget": "clsid2.mpc-hc",
       "description": "Lightweight media player"
+    },
+    "vlc": {
+      "content": "VLC",
+      "winget": "VideoLAN.VLC",
+      "description": "Free and open source multimedia player"
     },
     "foobar2000": {
       "content": "foobar2000",
@@ -74,11 +146,6 @@
       "winget": "yt-dlp.yt-dlp",
       "description": "Command-line video downloader"
     },
-    "vlc": {
-      "content": "VLC",
-      "winget": "VideoLAN.VLC",
-      "description": "Free and open source multimedia player"
-    },
     "sharex": {
       "content": "ShareX",
       "winget": "ShareX.ShareX",
@@ -86,6 +153,31 @@
     }
   },
   "Utilities": {
+    "powertoys": {
+      "content": "PowerToys",
+      "winget": "Microsoft.PowerToys",
+      "description": "System utilities: FancyZones, PowerRename, Run, etc."
+    },
+    "everything": {
+      "content": "Everything",
+      "winget": "voidtools.Everything",
+      "description": "Lightning-fast file search engine"
+    },
+    "ditto": {
+      "content": "Ditto",
+      "winget": "Ditto.Ditto",
+      "description": "Clipboard manager with search history"
+    },
+    "hwinfo": {
+      "content": "HWiNFO64",
+      "winget": "REALiX.HWiNFO",
+      "description": "Comprehensive hardware monitoring tool"
+    },
+    "syncthing": {
+      "content": "Syncthing",
+      "winget": "Syncthing.Syncthing",
+      "description": "P2P file sync between devices"
+    },
     "7zip_zs": {
       "content": "7-Zip ZS",
       "winget": "mcmilk.7zip-zstd",
@@ -96,49 +188,37 @@
       "winget": "RevoUninstaller.RevoUninstaller",
       "description": "Advanced uninstaller tool"
     },
-    "wise_regcleaner": {
-      "content": "Wise Registry Cleaner",
-      "winget": "WiseCleaner.WiseRegistryCleaner",
-      "description": "Registry cleaner and optimizer"
-    },
     "bitwarden": {
       "content": "Bitwarden",
       "winget": "Bitwarden.Bitwarden",
       "description": "Open source password manager"
-    },
-    "mobaxterm": {
-      "content": "MobaXterm",
-      "winget": "Mobatek.MobaXterm",
-      "description": "Enhanced terminal with X11 server"
     },
     "motrix": {
       "content": "Motrix",
       "winget": "Motrix.Motrix",
       "description": "Full-featured download manager"
     },
+    "mobaxterm": {
+      "content": "MobaXterm",
+      "winget": "Mobatek.MobaXterm",
+      "description": "Enhanced terminal with X11 server"
+    }
+  },
+  "Productivity": {
+    "obsidian": {
+      "content": "Obsidian",
+      "winget": "Obsidian.Obsidian",
+      "description": "Local-first note-taking app with Markdown"
+    },
+    "sumatra": {
+      "content": "Sumatra PDF",
+      "winget": "SumatraPDF.SumatraPDF",
+      "description": "Lightweight PDF and ebook reader"
+    },
     "notion": {
       "content": "Notion",
       "winget": "Notion.Notion",
       "description": "All-in-one workspace for notes and tasks"
-    }
-  },
-  "Communication": {
-    "discord": {
-      "content": "Discord",
-      "winget": "Discord.Discord",
-      "description": "Voice, video and text chat for communities"
-    },
-    "telegram": {
-      "content": "Telegram",
-      "winget": "Telegram.TelegramDesktop",
-      "description": "Cloud-based messaging app"
-    }
-  },
-  "Gaming": {
-    "steam": {
-      "content": "Steam",
-      "winget": "Valve.Steam",
-      "description": "Digital distribution platform for games"
     }
   }
 }

@@ -1,41 +1,41 @@
 <ResourceDictionary xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
                     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
     <!-- Backgrounds -->
-    <SolidColorBrush x:Key="windowBackground"      Color="#0F0D1A"/>
-    <SolidColorBrush x:Key="headerBackground"      Color="#13101F"/>
-    <SolidColorBrush x:Key="headerBorder"          Color="#2A2040"/>
-    <SolidColorBrush x:Key="footerBackground"      Color="#13101F"/>
-    <SolidColorBrush x:Key="footerBorder"          Color="#2A2040"/>
+    <SolidColorBrush x:Key="windowBackground"      Color="#1C1C1E"/>
+    <SolidColorBrush x:Key="headerBackground"      Color="#242426"/>
+    <SolidColorBrush x:Key="headerBorder"          Color="#3A3A3C"/>
+    <SolidColorBrush x:Key="footerBackground"      Color="#242426"/>
+    <SolidColorBrush x:Key="footerBorder"          Color="#3A3A3C"/>
 
     <!-- Cards -->
-    <SolidColorBrush x:Key="cardBackground"        Color="#1C1730"/>
-    <SolidColorBrush x:Key="cardForeground"        Color="#C8BEE8"/>
-    <SolidColorBrush x:Key="cardBorder"            Color="#2E2450"/>
+    <SolidColorBrush x:Key="cardBackground"        Color="#2C2C2E"/>
+    <SolidColorBrush x:Key="cardForeground"        Color="#D4CEBC"/>
+    <SolidColorBrush x:Key="cardBorder"            Color="#48484A"/>
 
-    <!-- Accent (Violet) -->
-    <SolidColorBrush x:Key="accentColor"           Color="#7C3AED"/>
-    <SolidColorBrush x:Key="accentHover"           Color="#6D28D9"/>
+    <!-- Accent (Soft Blue) -->
+    <SolidColorBrush x:Key="accentColor"           Color="#4D9DE0"/>
+    <SolidColorBrush x:Key="accentHover"           Color="#3A87C8"/>
 
     <!-- Text -->
-    <SolidColorBrush x:Key="pageTitleColor"        Color="#F0EBFF"/>
-    <SolidColorBrush x:Key="categoryHeaderColor"   Color="#A78BFA"/>
-    <SolidColorBrush x:Key="textMuted"             Color="#6B5F8A"/>
+    <SolidColorBrush x:Key="pageTitleColor"        Color="#E8E0CC"/>
+    <SolidColorBrush x:Key="categoryHeaderColor"   Color="#4D9DE0"/>
+    <SolidColorBrush x:Key="textMuted"             Color="#8E8E93"/>
 
     <!-- TextBox -->
-    <SolidColorBrush x:Key="textBoxBackground"     Color="#1C1730"/>
-    <SolidColorBrush x:Key="textBoxForeground"     Color="#C8BEE8"/>
-    <SolidColorBrush x:Key="textBoxBorder"         Color="#3D3060"/>
+    <SolidColorBrush x:Key="textBoxBackground"     Color="#2C2C2E"/>
+    <SolidColorBrush x:Key="textBoxForeground"     Color="#D4CEBC"/>
+    <SolidColorBrush x:Key="textBoxBorder"         Color="#48484A"/>
 
     <!-- Danger -->
-    <SolidColorBrush x:Key="dangerColor"           Color="#C026D3"/>
-    <SolidColorBrush x:Key="dangerHover"           Color="#A21CAF"/>
+    <SolidColorBrush x:Key="dangerColor"           Color="#C0392B"/>
+    <SolidColorBrush x:Key="dangerHover"           Color="#962D22"/>
 
     <!-- Selection -->
-    <SolidColorBrush x:Key="selectedBorder"        Color="#A78BFA"/>
-    <SolidColorBrush x:Key="selectedBackground"    Color="#1E1540"/>
+    <SolidColorBrush x:Key="selectedBorder"        Color="#4D9DE0"/>
+    <SolidColorBrush x:Key="selectedBackground"    Color="#162840"/>
 
     <!-- Hover / Secondary -->
-    <SolidColorBrush x:Key="hoverBackground"       Color="#241D3D"/>
-    <SolidColorBrush x:Key="secondaryBackground"   Color="#201A38"/>
-    <SolidColorBrush x:Key="secondaryHover"        Color="#2E2455"/>
+    <SolidColorBrush x:Key="hoverBackground"       Color="#262628"/>
+    <SolidColorBrush x:Key="secondaryBackground"   Color="#242426"/>
+    <SolidColorBrush x:Key="secondaryHover"        Color="#262628"/>
 </ResourceDictionary>

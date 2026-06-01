@@ -36,12 +36,15 @@ function Set-Status {
 function Update-InstalledCache {
     Write-Log "Updating installed apps cache..." "Info"
     $script:installedAppIds = @{}
+    if (-not (Get-Command winget -ErrorAction SilentlyContinue)) { Write-Log "winget not available." "Warn"; return }
     try {
-        $lines = winget list --accept-source-agreements 2>$null
-        foreach ($line in $lines) {
-            if ($line -match '^\S+\s+(\S+)') {
-                $id = $Matches[1]
-                if ($id -match '^[\w\.]+\.[\w\.]+') { $script:installedAppIds[$id] = $true }
+        $output = winget list --accept-source-agreements 2>&1 | Out-String
+        foreach ($cat in $appsConfig.PSObject.Properties.Name) {
+            foreach ($appKey in $appsConfig.$cat.PSObject.Properties.Name) {
+                $id = $appsConfig.$cat.$appKey.winget
+                if ($id -and $output -match [regex]::Escape($id)) {
+                    $script:installedAppIds[$id] = $true
+                }
             }
         }
     } catch { Write-Log "Installed cache update failed: $_" "Warn" }
@@ -67,7 +70,6 @@ function Apply-Theme {
         $window.Resources.MergedDictionaries.Clear()
         $window.Resources.MergedDictionaries.Add($rd)
         $script:currentTheme = $themeName
-        if ($controls -and $controls["CurrentThemeLabel"]) { $controls["CurrentThemeLabel"].Text = $themeName }
         Write-Log "Theme applied: $themeName" "Success"
     } catch { Write-Log "Theme apply failed: $_" "Error" }
 }
@@ -85,6 +87,9 @@ try {
 
 $controls = @{}
 $xaml.SelectNodes("//*[@Name]") | ForEach-Object { $controls[$_.Name] = $window.FindName($_.Name) }
+
+# Window drag on title
+$controls["TitleText"].Add_MouseLeftButtonDown({ $window.DragMove() })
 
 # Load Configs
 $configPath = Join-Path $PSScriptRoot "config"
@@ -104,18 +109,16 @@ $pages = @{
     "Tweaks" = $controls["PageTweaks"]
     "Features" = $controls["PageFeatures"]
     "Preferences" = $controls["PagePreferences"]
-    "Clean" = $controls["PageClean"]
-    "Settings" = $controls["PageSettings"]
     "Legacy" = $controls["PageLegacy"]
+    "Settings" = $controls["PageSettings"]
 }
 $navButtons = @{
     "Install" = $controls["NavInstall"]
     "Tweaks" = $controls["NavTweaks"]
     "Features" = $controls["NavFeatures"]
     "Preferences" = $controls["NavPreferences"]
-    "Clean" = $controls["NavClean"]
-    "Settings" = $controls["NavSettings"]
     "Legacy" = $controls["NavLegacy"]
+    "Settings" = $controls["NavSettings"]
 }
 
 function Switch-Page {
@@ -126,16 +129,18 @@ function Switch-Page {
         if ($pages[$key]) { $pages[$key].Visibility = if ($key -eq $pageName) { "Visible" } else { "Collapsed" } }
     }
     
+    if ($controls["TweaksButtonBar"]) { $controls["TweaksButtonBar"].Visibility = if ($pageName -eq "Tweaks") { "Visible" } else { "Collapsed" } }
+    
     foreach ($key in $navButtons.Keys) {
         $btn = $navButtons[$key]
         if ($btn) {
             if ($key -eq $pageName) {
-                $btn.Background = "#2D2D2D"
-                $btn.Foreground = "#3B82F6"
+                $btn.SetResourceReference([System.Windows.Controls.Control]::BackgroundProperty, "selectedBackground")
+                $btn.SetResourceReference([System.Windows.Controls.Control]::ForegroundProperty, "accentColor")
                 $btn.FontWeight = "SemiBold"
             } else {
-                $btn.Background = "Transparent"
-                $btn.Foreground = "#AAAAAA"
+                $btn.ClearValue([System.Windows.Controls.Control]::BackgroundProperty)
+                $btn.SetResourceReference([System.Windows.Controls.Control]::ForegroundProperty, "textMuted")
                 $btn.FontWeight = "Normal"
             }
         }
@@ -149,6 +154,207 @@ foreach ($key in $navButtons.Keys) {
     $btn = $navButtons[$key]
     $btn.Tag = $key
     $btn.Add_Click({ Switch-Page $this.Tag })
+}
+
+# --- Toolbar Handlers ---
+if ($controls["BtnToolbarTheme"]) {
+    $controls["BtnToolbarTheme"].Add_Click({
+        $newTheme = if ($script:currentTheme -eq "Dark") { "Light" } else { "Dark" }
+        Apply-Theme $newTheme
+    })
+}
+
+if ($controls["BtnToolbarClose"]) {
+    $controls["BtnToolbarClose"].Add_Click({ $window.Close() })
+}
+
+if ($controls["GearPopup"]) {
+    $controls["GearPopup"].Add_Closed({ $controls["BtnToolbarSettings"].IsChecked = $false })
+}
+
+if ($controls["BtnToolbarMinimize"]) {
+    $controls["BtnToolbarMinimize"].Add_Click({ $window.WindowState = "Minimized" })
+}
+
+if ($controls["BtnToolbarMaximize"]) {
+    $controls["BtnToolbarMaximize"].Add_Click({
+        if ($window.WindowState -eq "Normal") {
+            $window.WindowState = "Maximized"
+            $controls["BtnToolbarMaximize"].Content = [char]0xE923
+        } else {
+            $window.WindowState = "Normal"
+            $controls["BtnToolbarMaximize"].Content = [char]0xE922
+        }
+    })
+}
+
+# --- Gear Popup Handlers ---
+if ($controls["BtnGearExport"]) {
+    $controls["BtnGearExport"].Add_Click({
+        $dlg = New-Object Microsoft.Win32.SaveFileDialog
+        $dlg.FileName = "HksUtil_Config.json"
+        $dlg.DefaultExt = ".json"
+        $dlg.Filter = "JSON files (*.json)|*.json|All files (*.*)|*.*"
+        if ($dlg.ShowDialog($window)) {
+            $export = @{ AppSelections = @($appCheckboxes | Where-Object { $_.IsChecked } | ForEach-Object { $_.Tag }); PreferenceStates = @{} }
+            foreach ($pk in $prefCheckboxes.Keys) { $export.PreferenceStates[$pk] = $prefCheckboxes[$pk].IsChecked }
+            try { $export | ConvertTo-Json | Out-File $dlg.FileName -Encoding utf8; Write-Log "Config exported." "Success"; Show-Info "Export Complete" "Config saved." } catch { Write-Log "Export failed: $_" "Error"; Show-Info "Export Failed" $_ }
+        }
+    })
+}
+
+if ($controls["BtnGearImport"]) {
+    $controls["BtnGearImport"].Add_Click({
+        $dlg = New-Object Microsoft.Win32.OpenFileDialog
+        $dlg.DefaultExt = ".json"
+        $dlg.Filter = "JSON files (*.json)|*.json|All files (*.*)|*.*"
+        if ($dlg.ShowDialog($window)) {
+            try {
+                $import = Get-Content $dlg.FileName -Raw | ConvertFrom-Json
+                foreach ($cb in $appCheckboxes) { $cb.IsChecked = @($import.AppSelections) -contains $cb.Tag }
+                if ($import.PreferenceStates) { foreach ($pk in $import.PreferenceStates.PSObject.Properties.Name) { if ($prefCheckboxes[$pk]) { $prefCheckboxes[$pk].IsChecked = [bool]$import.PreferenceStates.$pk } } }
+                Update-SelectedCount; Write-Log "Config imported." "Success"; Show-Info "Import Complete" "Config loaded."
+            } catch { Write-Log "Import failed: $_" "Error"; Show-Info "Import Failed" $_ }
+        }
+    })
+}
+
+if ($controls["BtnGearAbout"]) { $controls["BtnGearAbout"].Add_Click({ Show-Info "About HksUtil" "HksUtil v2.0`nWindows Optimizer & Utility Tool`n`nBuilt with PowerShell + WPF" }) }
+if ($controls["BtnGearDocs"]) { $controls["BtnGearDocs"].Add_Click({ Show-Info "Documentation" "Documentation available at the project repository." }) }
+if ($controls["BtnGearSponsors"]) { $controls["BtnGearSponsors"].Add_Click({ Show-Info "Sponsors" "Support open-source development." }) }
+
+
+# --- DNS ---
+if ($controls["DnsRadioPanel"] -and $dnsConfig) {
+    $script:dnsNames = @($dnsConfig.PSObject.Properties.Name)
+    $script:dnsConfig = $dnsConfig
+    $script:dnsRadioButtons = @{}
+    $isFirst = $true
+    foreach ($dnsName in $script:dnsNames) {
+        $dns = $dnsConfig.$dnsName
+        $rb = New-Object System.Windows.Controls.RadioButton
+        $rb.Tag = $dnsName
+        $rb.Style = $window.FindResource("DnsCardStyle")
+        $rb.GroupName = "DnsProvider"
+
+        $sp = New-Object System.Windows.Controls.StackPanel
+        $sp.Orientation = "Horizontal"
+        $sp.VerticalAlignment = "Center"
+
+        $nameTb = New-Object System.Windows.Controls.TextBlock
+        $nameTb.Text = "$dnsName - $($dns.description)"
+        $nameTb.FontSize = 12
+        $nameTb.FontWeight = "SemiBold"
+        $nameTb.VerticalAlignment = "Center"
+        $nameTb.SetResourceReference([System.Windows.Controls.TextBlock]::ForegroundProperty, "pageTitleColor")
+        $sp.Children.Add($nameTb) | Out-Null
+
+        $ipTb = New-Object System.Windows.Controls.TextBlock
+        $ipv4 = if ($dns.PSObject.Properties.Name -contains "ipv4") { $dns.ipv4 -join ", " } else { "" }
+        $ipTb.Text = "  $ipv4"
+        $ipTb.FontSize = 10
+        $ipTb.FontFamily = "Consolas"
+        $ipTb.VerticalAlignment = "Center"
+        $ipTb.SetResourceReference([System.Windows.Controls.TextBlock]::ForegroundProperty, "textMuted")
+        $sp.Children.Add($ipTb) | Out-Null
+
+        $rb.Content = $sp
+        $rb.Add_Checked({
+            Write-Log "DNS selected: $($this.Tag)" "Info"
+        })
+
+        $null = $controls["DnsRadioPanel"].Children.Add($rb)
+        $script:dnsRadioButtons[$dnsName] = $rb
+        if ($isFirst) { $rb.IsChecked = $true; $isFirst = $false }
+    }
+    Write-Log "Built $($script:dnsNames.Count) DNS radio buttons." "Success"
+}
+
+if ($controls["BtnApplyDns"]) {
+    $controls["BtnApplyDns"].Add_Click({
+        $selectedRb = $script:dnsRadioButtons.Values | Where-Object { $_.IsChecked -eq $true } | Select-Object -First 1
+        if (-not $selectedRb) { Write-Log "No DNS provider selected." "Warn"; return }
+        $dnsName = $selectedRb.Tag
+        $dns = $script:dnsConfig.$dnsName
+
+        $ipv4 = if ($dns.PSObject.Properties.Name -contains "ipv4") { $dns.ipv4 } else { @() }
+        if (-not (Show-Confirm "Apply DNS" "Set DNS to $dnsName?`n`nIPv4: $($ipv4 -join ', ')") ) { return }
+
+        Write-Log "Setting DNS to $dnsName..." "Info"
+        try {
+            $adapter = Get-NetAdapter -Physical | Where-Object { $_.Status -eq 'Up' } | Select-Object -First 1
+            if (-not $adapter) { Write-Log "No active network adapter found." "Error"; return }
+            $ifIndex = $adapter.ifIndex
+            $ifName = $adapter.Name
+
+            $ipv6 = if ($dns.PSObject.Properties.Name -contains "ipv6") { $dns.ipv6 } else { @() }
+
+            Set-DnsClientServerAddress -InterfaceIndex $ifIndex -ServerAddresses ($ipv4 + $ipv6)
+            Write-Log "DNS set to $dnsName successfully." "Success"
+            Show-Info "DNS Applied" "DNS has been set to $dnsName.`n`nIPv4: $($ipv4 -join ', ')"
+        } catch {
+            Write-Log "Failed to set DNS: $_" "Error"
+            try {
+                $adapter = Get-NetAdapter -Physical | Where-Object { $_.Status -eq 'Up' } | Select-Object -First 1
+                if (-not $adapter) { Write-Log "No active adapter for netsh." "Error"; return }
+                $ifName = $adapter.Name
+                netsh interface ip set dns "$ifName" static $($ipv4[0])
+                for ($i = 1; $i -lt $ipv4.Count; $i++) { netsh interface ip add dns "$ifName" $($ipv4[$i]) index=$($i+1) }
+                Write-Log "DNS set via netsh fallback." "Success"
+                Show-Info "DNS Applied" "DNS set via netsh.`n$dnsName ($($ipv4 -join ', '))"
+            } catch { Write-Log "netsh fallback also failed: $_" "Error" }
+        }
+    })
+}
+
+
+if ($controls["BtnTerminalDotfiles"]) {
+    $controls["BtnTerminalDotfiles"].Add_Click({
+        Write-Log "Launching Terminal Dotfiles installer..." "Header"
+        try { Invoke-TerminalAction "install"; Write-Log "Terminal Dotfiles installer launched." "Success" }
+        catch { Write-Log "Terminal Dotfiles install failed: $_" "Error" }
+    })
+}
+
+# --- Utility Buttons ---
+$script:desktopShortcutPath = Join-Path ([Environment]::GetFolderPath("Desktop")) "HksUtil.lnk"
+
+if ($controls["BtnCreateShortcut"]) {
+    $controls["BtnCreateShortcut"].Add_Click({
+        $lnkPath = $script:desktopShortcutPath
+        if (Test-Path $lnkPath) { Write-Log "Shortcut already exists." "Warn"; return }
+        try {
+            $wshell = New-Object -ComObject WScript.Shell
+            $shortcut = $wshell.CreateShortcut($lnkPath)
+            $shortcut.TargetPath = "powershell.exe"
+            $shortcut.Arguments = "-NoProfile -ExecutionPolicy Bypass -File `"$PSCommandPath`""
+            $shortcut.WorkingDirectory = $PSScriptRoot
+            $shortcut.Description = "HksUtil v2.0 - Windows Optimizer"
+            $shortcut.Save()
+            Write-Log "Desktop shortcut created." "Success"
+            Show-Info "Shortcut Created" "Desktop shortcut created.`n$lnkPath"
+        } catch { Write-Log "Shortcut creation failed: $_" "Error"; Show-Info "Shortcut Failed" "Error: $_" }
+    })
+}
+
+
+
+if ($controls["BtnUninstallTerminal"]) {
+    $controls["BtnUninstallTerminal"].Add_Click({
+        if (-not (Show-Confirm "Uninstall" "Uninstall Terminal Dotfiles? This will remove custom profiles and themes.")) { return }
+        Write-Log "Launching Terminal Dotfiles uninstaller..." "Header"
+        try { Invoke-TerminalAction "uninstall"; Write-Log "Terminal Dotfiles uninstaller launched." "Warn" }
+        catch { Write-Log "Terminal Dotfiles uninstall failed: $_" "Error" }
+    })
+}
+
+function Invoke-TerminalAction {
+    param([string]$Action)
+    $url = if ($Action -eq "install") { "https://raw.githubusercontent.com/hartkitsak/Terminal-Dotfiles/master/install.ps1" } else { "https://raw.githubusercontent.com/hartkitsak/Terminal-Dotfiles/master/uninstall.ps1" }
+    $cmd = "irm '$url' | iex"
+    $bytes = [System.Text.Encoding]::Unicode.GetBytes($cmd)
+    $encoded = [Convert]::ToBase64String($bytes)
+    Start-Process powershell.exe -ArgumentList "-NoProfile -ExecutionPolicy Bypass -EncodedCommand $encoded" -WindowStyle Normal
 }
 
 # --- Undo System (hashtable to prevent duplicates) ---
@@ -223,6 +429,7 @@ function Invoke-UndoTweaks {
 
 # --- Build Apps UI ---
 $appCheckboxes = @()
+$appPanels = @()
 $appPanelIndex = 0
 $script:categoryItems = @{}
 $script:categoryCollapsed = @{}
@@ -231,7 +438,7 @@ if (($controls["AppPanel1"] -and $controls["AppPanel2"] -and $controls["AppPanel
     foreach ($category in $appsConfig.PSObject.Properties.Name) {
         $catCount = ($appsConfig.$category.PSObject.Properties.Name).Count
         $header = New-Object System.Windows.Controls.TextBlock
-        $header.Text = "+ $($category.ToUpper()) ($catCount)"; $header.Style = $window.FindResource("CategoryHeader"); $header.Cursor = "Hand"
+        $header.Text = "- $($category.ToUpper()) ($catCount)"; $header.Style = $window.FindResource("CategoryHeader"); $header.Cursor = "Hand"
         $header.Tag = $category
         $appPanels[$appPanelIndex].Children.Add($header) | Out-Null
         $script:categoryItems[$category] = @()
@@ -260,15 +467,16 @@ if (($controls["AppPanel1"] -and $controls["AppPanel2"] -and $controls["AppPanel
         $appPanelIndex = ($appPanelIndex + 1) % 3
     }
     foreach ($cat in $script:categoryItems.Keys) {
-        $script:categoryCollapsed[$cat] = $true
-        foreach ($item in $script:categoryItems[$cat]) { $item.Visibility = "Collapsed" }
+        $script:categoryCollapsed[$cat] = $false
     }
     Write-Log "Built $($appCheckboxes.Count) app cards." "Success"
 }
 
 # --- Build Preferences UI ---
 $prefCheckboxes = @{}
-if ($controls["PrefsWrapPanel"] -and $prefsConfig) {
+if ($controls["PrefsPanel1"] -and $controls["PrefsPanel2"] -and $controls["PrefsPanel3"] -and $prefsConfig) {
+    $panels = @($controls["PrefsPanel1"], $controls["PrefsPanel2"], $controls["PrefsPanel3"])
+    $panelIndex = 0
     foreach ($prefKey in $prefsConfig.PSObject.Properties.Name) {
         $pref = $prefsConfig.$prefKey
         $cb = New-Object System.Windows.Controls.CheckBox
@@ -306,8 +514,9 @@ if ($controls["PrefsWrapPanel"] -and $prefsConfig) {
             Write-Log "Pref OFF: $($p.content)" "Warn"
         })
         
-        $controls["PrefsWrapPanel"].Children.Add($cb) | Out-Null
+        $panels[$panelIndex].Children.Add($cb) | Out-Null
         $prefCheckboxes[$prefKey] = $cb
+        $panelIndex = ($panelIndex + 1) % 3
     }
     Write-Log "Built $($prefCheckboxes.Count) preference toggles." "Success"
 }
@@ -340,8 +549,8 @@ if ($controls["TweaksPanel1"] -and $controls["TweaksPanel2"] -and $controls["Twe
 
 # --- Build Features & Fixes UI ---
 $featuresCheckboxes = @()
-if ($controls["FeaturesPanel1"] -and $controls["FeaturesPanel2"] -and $featuresConfig -and $featuresConfig.PSObject.Properties.Name -contains "Features") {
-    $panels = @($controls["FeaturesPanel1"], $controls["FeaturesPanel2"])
+if ($controls["FeaturesPanel1"] -and $controls["FeaturesPanel2"] -and $controls["FeaturesPanel3"] -and $featuresConfig -and $featuresConfig.PSObject.Properties.Name -contains "Features") {
+    $panels = @($controls["FeaturesPanel1"], $controls["FeaturesPanel2"], $controls["FeaturesPanel3"])
     $panelIndex = 0
     $features = $featuresConfig.Features
     foreach ($featKey in $features.PSObject.Properties.Name) {
@@ -351,7 +560,7 @@ if ($controls["FeaturesPanel1"] -and $controls["FeaturesPanel2"] -and $featuresC
         if ($feat.description) { $cb.ToolTip = $feat.description }
         $panels[$panelIndex].Children.Add($cb) | Out-Null
         $featuresCheckboxes += $cb
-        $panelIndex = ($panelIndex + 1) % 2
+        $panelIndex = ($panelIndex + 1) % 3
     }
     Write-Log "Built $($featuresCheckboxes.Count) feature checkboxes." "Success"
 }
@@ -368,13 +577,12 @@ if ($controls["FixesWrapPanel"] -and $featuresConfig -and $featuresConfig.PSObje
             $f = $this.Tag
             if (-not (Show-Confirm "Run Fix" "Execute: $($f.content)?")) { return }
             Write-Log "Running fix: $($f.content)" "Header"
-            try { Invoke-Expression $f.script; Write-Log "Fix completed: $($f.content)" "Success"; Show-Info "Fix Complete" "$($f.content)`n`nCompleted successfully." } catch { Write-Log "Fix failed: $_" "Error"; Show-Info "Fix Failed" "$($f.content)`n`nError: $_" }
+            try { & ([scriptblock]::Create($f.script)); Write-Log "Fix completed: $($f.content)" "Success"; Show-Info "Fix Complete" "$($f.content)`n`nCompleted successfully." } catch { Write-Log "Fix failed: $_" "Error"; Show-Info "Fix Failed" "$($f.content)`n`nError: $_" }
         })
         $controls["FixesWrapPanel"].Children.Add($btn) | Out-Null
     }
     Write-Log "Built $($fixes.PSObject.Properties.Name.Count) fix buttons." "Success"
 }
-
 
 # --- Build Legacy Windows Panels UI ---
 $legacyPanels = @(
@@ -390,7 +598,9 @@ $legacyPanels = @(
     @{ Name = "Windows Restore"; Desc = "System Restore - create or restore restore points"; Command = "rstrui.exe" }
 )
 
-if ($controls["LegacyWrapPanel"]) {
+if ($controls["LegacyPanel1"] -and $controls["LegacyPanel2"] -and $controls["LegacyPanel3"]) {
+    $panels = @($controls["LegacyPanel1"], $controls["LegacyPanel2"], $controls["LegacyPanel3"])
+    $panelIndex = 0
     foreach ($panel in $legacyPanels) {
         $btn = New-Object System.Windows.Controls.Button
         $btn.Style = $window.FindResource("FeatureCard")
@@ -435,158 +645,11 @@ if ($controls["LegacyWrapPanel"]) {
             }
         })
 
-        $controls["LegacyWrapPanel"].Children.Add($btn) | Out-Null
+        $panels[$panelIndex].Children.Add($btn) | Out-Null
+        $panelIndex = ($panelIndex + 1) % 3
     }
     Write-Log "Built $($legacyPanels.Count) legacy panel buttons." "Success"
 }
-
-# --- Build Settings UI ---
-if ($controls["ThemeSelector"]) {
-    $themeDir = Join-Path $PSScriptRoot "themes"
-    if (Test-Path $themeDir) {
-        Get-ChildItem $themeDir -Filter "*.xaml" | ForEach-Object {
-            $themeName = $_.BaseName
-            $item = New-Object System.Windows.Controls.ComboBoxItem; $item.Content = $themeName
-            $controls["ThemeSelector"].Items.Add($item) | Out-Null
-        }
-    }
-    $controls["ThemeSelector"].Add_SelectionChanged({
-        $selected = $controls["ThemeSelector"].SelectedItem
-        if ($selected -and $selected.Content) { Apply-Theme $selected.Content }
-    })
-    for ($i = 0; $i -lt $controls["ThemeSelector"].Items.Count; $i++) {
-        if ($controls["ThemeSelector"].Items[$i].Content -eq "Dark") { $controls["ThemeSelector"].SelectedIndex = $i; break }
-    }
-}
-
-if ($controls["DnsSelector"] -and $dnsConfig) {
-    foreach ($dnsName in $dnsConfig.PSObject.Properties.Name) {
-        $item = New-Object System.Windows.Controls.ComboBoxItem; $item.Content = "$dnsName ($($dnsConfig.$dnsName.description))"
-        $item.Tag = $dnsName
-        $controls["DnsSelector"].Items.Add($item) | Out-Null
-    }
-    $controls["DnsSelector"].SelectedIndex = 0
-}
-
-if ($controls["BtnApplyDns"]) {
-    $controls["BtnApplyDns"].Add_Click({
-        $selected = $controls["DnsSelector"].SelectedItem
-        if (-not $selected -or -not $selected.Tag) { Write-Log "No DNS provider selected." "Warn"; return }
-        $dnsName = $selected.Tag
-        $dns = $dnsConfig.$dnsName
-        if (-not (Show-Confirm "Apply DNS" "Set DNS to $dnsName?`n`nIPv4: $($dns.ipv4 -join ', ')")) { return }
-
-        Write-Log "Setting DNS to $dnsName..." "Info"
-        try {
-            $adapter = Get-NetAdapter | Where-Object { $_.Status -eq 'Up' } | Select-Object -First 1
-            if (-not $adapter) { Write-Log "No active network adapter found." "Error"; return }
-            $ifIndex = $adapter.ifIndex
-            $ifName = $adapter.Name
-            
-            $ipv4 = $dns.ipv4
-            $ipv6 = if ($dns.PSObject.Properties.Name -contains "ipv6") { $dns.ipv6 } else { @() }
-            
-            Set-DnsClientServerAddress -InterfaceIndex $ifIndex -ServerAddresses ($ipv4 + $ipv6)
-            Write-Log "DNS set to $dnsName successfully." "Success"
-            Show-Info "DNS Applied" "DNS has been set to $dnsName.`n`nIPv4: $($ipv4 -join ', ')"
-        } catch {
-            Write-Log "Failed to set DNS: $_" "Error"
-            try {
-                $adapter = Get-NetAdapter | Where-Object { $_.Status -eq 'Up' } | Select-Object -First 1
-                if (-not $adapter) { Write-Log "No active adapter for netsh." "Error"; return }
-                $ifName = $adapter.Name
-                netsh interface ip set dns $ifName static $($dns.ipv4[0])
-                for ($i = 1; $i -lt $dns.ipv4.Count; $i++) { netsh interface ip add dns $ifName $($dns.ipv4[$i]) index=$($i+1) }
-                Write-Log "DNS set via netsh fallback." "Success"
-                Show-Info "DNS Applied" "DNS set via netsh.`n$dnsName ($($dns.ipv4 -join ', '))"
-            } catch { Write-Log "netsh fallback also failed: $_" "Error" }
-        }
-    })
-}
-
-# --- Utility Buttons ---
-$script:desktopShortcutPath = Join-Path ([Environment]::GetFolderPath("Desktop")) "HksUtil.lnk"
-
-$controls["BtnCreateShortcut"].Add_Click({
-    $lnkPath = $script:desktopShortcutPath
-    if (Test-Path $lnkPath) { Write-Log "Shortcut already exists." "Warn"; return }
-    try {
-        $wshell = New-Object -ComObject WScript.Shell
-        $sc = $wshell.CreateShortcut($lnkPath)
-        $sc.TargetPath = "powershell.exe"
-        $sc.Arguments = '-NoProfile -ExecutionPolicy Bypass -Command "irm https://raw.githubusercontent.com/hartkitsak/HksUtil/main/launcher.ps1 | iex"'
-        $sc.Description = "HksUtil v2.0 - Windows Optimizer"
-        $sc.IconLocation = "powershell.exe,0"
-        $sc.Save()
-        Write-Log "Desktop shortcut created." "Success"
-    } catch { Write-Log "Shortcut creation failed: $_" "Error" }
-})
-
-function Invoke-TerminalAction {
-    param([string]$Action)
-    $url = if ($Action -eq "install") { "https://raw.githubusercontent.com/hartkitsak/Terminal-Dotfiles/master/install.ps1" } else { "https://raw.githubusercontent.com/hartkitsak/Terminal-Dotfiles/master/uninstall.ps1" }
-    $cmd = "irm '$url' | iex"
-    $bytes = [System.Text.Encoding]::Unicode.GetBytes($cmd)
-    $encoded = [Convert]::ToBase64String($bytes)
-    Start-Process powershell.exe -ArgumentList "-NoProfile -ExecutionPolicy Bypass -EncodedCommand $encoded" -WindowStyle Normal
-}
-
-$controls["BtnTerminalDotfiles"].Add_Click({
-    Write-Log "Launching Terminal Dotfiles installer..." "Header"
-    try { Invoke-TerminalAction "install"; Write-Log "Terminal Dotfiles installer launched." "Success" }
-    catch { Write-Log "Terminal Dotfiles install failed: $_" "Error" }
-})
-
-$controls["BtnUninstallTerminal"].Add_Click({
-    if (-not (Show-Confirm "Uninstall" "Uninstall Terminal Dotfiles? This will remove custom profiles and themes.")) { return }
-    Write-Log "Launching Terminal Dotfiles uninstaller..." "Header"
-    try { Invoke-TerminalAction "uninstall"; Write-Log "Terminal Dotfiles uninstaller launched." "Warn" }
-    catch { Write-Log "Terminal Dotfiles uninstall failed: $_" "Error" }
-})
-
-if ($controls["BtnResetSettings"]) {
-    $controls["BtnResetSettings"].Add_Click({
-        if (-not (Show-Confirm "Reset Settings" "Reset all settings to default?")) { return }
-        Apply-Theme "Dark"; $controls["ThemeSelector"].SelectedIndex = 0
-        Write-Log "Settings reset to default." "Info"
-    })
-}
-
-$controls["BtnExportConfig"].Add_Click({
-    $savePath = Join-Path ([Environment]::GetFolderPath("Desktop")) "HksUtil_Config.json"
-    $export = @{
-        AppSelections = @($appCheckboxes | Where-Object { $_.IsChecked } | ForEach-Object { $_.Tag })
-        PreferenceStates = @{}
-    }
-    foreach ($pk in $prefCheckboxes.Keys) {
-        $export.PreferenceStates[$pk] = $prefCheckboxes[$pk].IsChecked
-    }
-    try {
-        $export | ConvertTo-Json | Out-File $savePath -Encoding utf8
-        Write-Log "Config exported to $savePath" "Success"
-        Show-Info "Export Complete" "Config saved to Desktop as HksUtil_Config.json"
-    } catch { Write-Log "Export failed: $_" "Error"; Show-Info "Export Failed" $_ }
-})
-
-$controls["BtnImportConfig"].Add_Click({
-    $openPath = Join-Path ([Environment]::GetFolderPath("Desktop")) "HksUtil_Config.json"
-    if (-not (Test-Path $openPath)) { Show-Info "File not found" "Place HksUtil_Config.json on your Desktop."; return }
-    try {
-        $import = Get-Content $openPath -Raw | ConvertFrom-Json
-        $selections = @($import.AppSelections)
-        foreach ($cb in $appCheckboxes) {
-            $cb.IsChecked = $selections -contains $cb.Tag
-        }
-        if ($import.PreferenceStates) {
-            foreach ($pk in $import.PreferenceStates.PSObject.Properties.Name) {
-                if ($prefCheckboxes[$pk]) { $prefCheckboxes[$pk].IsChecked = [bool]$import.PreferenceStates.$pk }
-            }
-        }
-        Update-SelectedCount
-        Write-Log "Config imported." "Success"
-        Show-Info "Import Complete" "Config loaded from Desktop."
-    } catch { Write-Log "Import failed: $_" "Error"; Show-Info "Import Failed" $_ }
-})
 
 # --- Filter Logic ---
 
@@ -633,7 +696,7 @@ $controls["BtnSelectAll"].Add_Click({ foreach ($cb in $appCheckboxes) { if ($cb.
 $script:pkgManager = "winget"
 function Update-SelectedCount {
     $count = ($appCheckboxes | Where-Object { $_.IsChecked -eq $true }).Count
-    if ($controls["LblSelectedCount"]) { $controls["LblSelectedCount"].Text = "$count" }
+    if ($controls["LblSelectedCount"]) { $controls["LblSelectedCount"].Text = "Selected Apps: $count" }
 }
 
 $controls["PkgWinGet"].Add_Checked({ $script:pkgManager = "winget"; Write-Log "Package manager: WinGet" "Info" })
@@ -705,7 +768,7 @@ $controls["BtnUninstall"].Add_Click({
         } catch { Write-Log "Failed: $id" "Error" }
         if ($pkg -eq "winget") {
             Write-Log "Deep Cleaning $id..." "Info"; Set-Status "Cleaning $id leftovers..."
-            foreach ($term in ($id -split '\.')) {
+            foreach ($term in ($id -split '\.') | Where-Object { $_.Length -gt 4 }) {
                 foreach ($basePath in @($env:APPDATA, $env:LOCALAPPDATA, $env:PROGRAMDATA)) {
                     Get-ChildItem -Path $basePath -Directory -Filter "*$term*" -ErrorAction SilentlyContinue | ForEach-Object { try { Remove-Item $_.FullName -Recurse -Force; Write-Log "Deleted: $($_.FullName)" "Success" } catch {} }
                 }
@@ -769,70 +832,29 @@ $controls["BtnRunTweaks"].Add_Click({
 
 $controls["BtnUndoTweaks"].Add_Click({ Invoke-UndoTweaks })
 
-$controls["BtnRunFeatures"].Add_Click({
-    $selected = $featuresCheckboxes | Where-Object { $_.IsChecked -eq $true }
-    if ($selected.Count -eq 0) { Write-Log "No features selected." "Warn"; return }
-    if (-not (Show-Confirm "Run Features" "Enable $($selected.Count) feature(s)?")) { return }
-    Write-Log "Running Selected Features..." "Header"
-    Set-Status "Enabling $($selected.Count) feature(s)..."
-    foreach ($cb in $selected) {
-        $featKey = $cb.Tag
-        $feat = $featuresConfig.Features.$featKey
-        if (-not $feat) { continue }
-        Write-Log "Enabling: $($feat.content)" "Info"
-        try {
-            Invoke-Expression $feat.script
-            Write-Log "Feature enabled: $($feat.content)" "Success"
-        } catch { Write-Log "Feature failed: $($feat.content): $_" "Error" }
-    }
-    Set-Status "Ready"
-    Show-Info "Features Complete" "$($selected.Count) feature(s) enabled.`n`nSome may require a reboot."
-    Write-Log "All selected features completed." "Header"
-})
-
-# --- Clean System ---
-function Get-FolderSize {
-    param([string]$Path)
-    try {
-        $size = (Get-ChildItem $Path -Recurse -Force -ErrorAction SilentlyContinue | Measure-Object -Property Length -Sum -ErrorAction SilentlyContinue).Sum
-        if ($size) {
-            if ($size -gt 1GB) { return "{0:N2} GB" -f ($size / 1GB) }
-            elseif ($size -gt 1MB) { return "{0:N2} MB" -f ($size / 1MB) }
-            elseif ($size -gt 1KB) { return "{0:N2} KB" -f ($size / 1KB) }
-            else { return "$size Bytes" }
+# --- Features Execution ---
+if ($controls["BtnRunFeatures"]) {
+    $controls["BtnRunFeatures"].Add_Click({
+        $selected = $featuresCheckboxes | Where-Object { $_.IsChecked -eq $true }
+        if ($selected.Count -eq 0) { Write-Log "No features selected." "Warn"; return }
+        if (-not (Show-Confirm "Run Features" "Apply $($selected.Count) selected feature(s)?")) { return }
+        Write-Log "Running Selected Features..." "Header"
+        Set-Status "Running $($selected.Count) feature(s)..."
+        foreach ($cb in $selected) {
+            $featKey = $cb.Tag
+            $feat = $featuresConfig.Features.$featKey
+            if (-not $feat) { continue }
+            Write-Log "Running: $($feat.content)" "Info"
+            try {
+                Invoke-Expression $feat.script
+                Write-Log "Feature completed: $($feat.content)" "Success"
+            } catch { Write-Log "Feature failed: $($feat.content): $_" "Error" }
         }
-        return "0 Bytes"
-    } catch { return "Unknown" }
-}
-
-$controls["BtnCleanTemp"].Add_Click({
-    $paths = @($env:TEMP, "C:\Windows\Temp", "$env:LOCALAPPDATA\Microsoft\Windows\INetCache")
-    $sizeDetails = @()
-    foreach ($f in $paths) { if (Test-Path $f) { $sizeDetails += "$f : $(Get-FolderSize $f)" } }
-    $infoMsg = "Scannable paths:`n`n" + ($sizeDetails -join "`n")
-    if (-not (Show-Confirm "Clean Temp Files" "$infoMsg`n`nClean all temp files?")) { return }
-    Write-Log "Cleaning Temp Files..." "Header"; Set-Status "Cleaning temp files..."
-    foreach ($f in $paths) {
-        if (Test-Path $f) { try { Get-ChildItem $f -Recurse -Force -ErrorAction SilentlyContinue | Remove-Item -Recurse -Force -ErrorAction SilentlyContinue; Write-Log "Cleaned: $f" "Success" } catch { Write-Log "Skip (Locked): $f" "Warn" } }
-    }
-    Set-Status "Ready"
-    Show-Info "Clean Complete" "Temp files and cache cleaned."
-    Write-Log "Temp Clean complete." "Header"
-})
-
-$controls["BtnCleanUpdate"].Add_Click({
-    $path = "C:\Windows\SoftwareDistribution\Download"
-    $size = if (Test-Path $path) { Get-FolderSize $path } else { "0 Bytes" }
-    if (-not (Show-Confirm "Clean Windows Update Cache" "Cache size: $size`n`nClean update cache? Windows Update service will restart.")) { return }
-    Write-Log "Cleaning Windows Update Cache..." "Header"; Set-Status "Cleaning update cache..."
-    try {
-        Stop-Service wuauserv -Force -ErrorAction SilentlyContinue
-        if (Test-Path $path) { Get-ChildItem $path -Recurse -Force -ErrorAction SilentlyContinue | Remove-Item -Recurse -Force -ErrorAction SilentlyContinue; Write-Log "Update Cache Cleaned." "Success" }
-        Start-Service wuauserv -ErrorAction SilentlyContinue
         Set-Status "Ready"
-        Show-Info "Clean Complete" "Windows Update cache cleaned."
-    } catch { Write-Log "Error: $_" "Error"; Set-Status "Ready" }
-})
+        Show-Info "Features Complete" "$($selected.Count) feature(s) applied."
+        Write-Log "All selected features completed." "Header"
+    })
+}
 
 # --- Show default page ---
 Switch-Page "Install"

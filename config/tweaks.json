@@ -184,28 +184,14 @@
     "WPFTweaksWidget": {
       "content": "Widgets - Remove",
       "description": "Removes the annoying widgets in the bottom left of the Taskbar.",
-      "script": "# Sometimes if you dont stop the Widgets process the removal may fail\n\nGet-Process *Widget* | Stop-Process\nGet-AppxPackage Microsoft.WidgetsPlatformRuntime -AllUsers | Remove-AppxPackage -AllUsers\nGet-AppxPackage MicrosoftWindows.Client.WebExperience -AllUsers | Remove-AppxPackage -AllUsers\n\nInvoke-WinUtilExplorerUpdate -action \"restart\"\nWrite-Host \"Removed widgets\"",
-      "undoScript": "Write-Host \"Restoring widgets AppxPackages\"\n\nAdd-AppxPackage -Register \"C:\\Program Files\\WindowsApps\\Microsoft.WidgetsPlatformRuntime*\\AppxManifest.xml\" -DisableDevelopmentMode\nAdd-AppxPackage -Register \"C:\\Program Files\\WindowsApps\\MicrosoftWindows.Client.WebExperience*\\AppxManifest.xml\" -DisableDevelopmentMode\n\nInvoke-WinUtilExplorerUpdate -action \"restart\""
+      "script": "# Sometimes if you dont stop the Widgets process the removal may fail\n\nGet-Process *Widget* | Stop-Process\nGet-AppxPackage Microsoft.WidgetsPlatformRuntime -AllUsers | Remove-AppxPackage -AllUsers\nGet-AppxPackage MicrosoftWindows.Client.WebExperience -AllUsers | Remove-AppxPackage -AllUsers\n\nStop-Process -Name explorer -Force\nWrite-Host \"Removed widgets\"",
+      "undoScript": "Write-Host \"Restoring widgets AppxPackages\"\n\nAdd-AppxPackage -Register \"C:\\Program Files\\WindowsApps\\Microsoft.WidgetsPlatformRuntime*\\AppxManifest.xml\" -DisableDevelopmentMode\nAdd-AppxPackage -Register \"C:\\Program Files\\WindowsApps\\MicrosoftWindows.Client.WebExperience*\\AppxManifest.xml\" -DisableDevelopmentMode\n\nStop-Process -Name explorer -Force"
     },
     "WPFTweaksWPBT": {
       "content": "Windows Platform Binary Table (WPBT) - Disable",
       "description": "If enabled, WPBT allows your computer vendor to execute programs at boot time, such as anti-theft software, software drivers, as well as force install software without user consent. Poses potential security risk.",
       "registry": [
         { "path": "HKLM:\\SYSTEM\\CurrentControlSet\\Control\\Session Manager", "name": "DisableWpbtExecution", "value": 1, "type": "DWord" }
-      ]
-    }
-  },
-  "UI": {
-    "compact_taskbar": {
-      "content": "Small Taskbar Icons",
-      "description": "Uses smaller taskbar icons for more space",
-      "registry": [
-        {
-          "path": "HKCU:\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Explorer\\Advanced",
-          "name": "TaskbarSmallIcons",
-          "value": 1,
-          "type": "DWord"
-        }
       ]
     }
   }
