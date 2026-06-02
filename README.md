@@ -1,94 +1,174 @@
-# HksUtil v2.0
+<div align="center">
+  <pre>
+HH   HH KK   KK  SSSSSS  UU   UU TTTTTT IIIIII LL
+HH   HH KK  KK  SS       UU   UU   TT     II   LL
+HHHHHHH KKKKK    SSSSSS  UU   UU   TT     II   LL
+HH   HH KK  KK       SS  UU   UU   TT     II   LL
+HH   HH KK   KK  SSSSSS   UUUUU    TT   IIIIII LLLL</pre>
+  <h1>HksUtil</h1>
+  <h3>Windows Optimizer & Package Manager</h3>
+  <p>
+    <a href="#features">Features</a> ·
+    <a href="#installation">Installation</a> ·
+    <a href="#usage">Usage</a> ·
+    <a href="#customization">Customization</a> ·
+    <a href="#license">License</a>
+  </p>
+  <p>
+    <img src="https://img.shields.io/badge/Windows-10%2F11-0078D4?logo=windows&logoColor=white" alt="Windows">
+    <img src="https://img.shields.io/badge/PowerShell-5.1%2B-5391FE?logo=powershell&logoColor=white" alt="PowerShell">
+    <img src="https://img.shields.io/badge/WPF-.NET%204.8-512BD4?logo=dotnet&logoColor=white" alt="WPF">
+    <img src="https://img.shields.io/badge/tests-32%20passed-2ea44f" alt="Tests">
+    <img src="https://img.shields.io/badge/license-MIT-yellow" alt="License">
+  </p>
+</div>
 
-A Windows optimization and app management tool built with PowerShell and WPF. Dark/Light themed GUI for installing apps, applying tweaks, running system fixes, and more.
+---
 
-## Quick Start
+## Overview
 
+HksUtil is a Windows utility tool that provides a modern graphical interface for system optimization and package management. Built with **PowerShell** and **WPF**, it combines WinGet/Chocolatey app management, system tweaks, Windows features, and DNS switching into one unified dashboard with Dark and Light themes.
+
+## Features
+
+### 📦 App Management
+| | |
+|---|---|
+| **Package Managers** | WinGet + Chocolatey |
+| **App Catalog** | 42 applications across 6 categories |
+| **Operations** | Install, uninstall, batch apply |
+| **UX** | Search, installed filter, collapsible groups, right-click menu |
+
+### ⚙️ System Tweaks
+| | |
+|---|---|
+| **Performance** | SysMain, Search Indexing, Power Plan, Visual Effects |
+| **Privacy** | Telemetry, Activity History, Location Tracking, Tailored Experiences |
+| **Essential** | Services tuning, AppX removal, Disk Cleanup, Widgets, WPBT |
+| **Safety** | System Restore checkpoint + per-tweak undo log with rollback dialog |
+
+### 🔧 Features & Fixes
+- **Windows Features** — .NET Framework, Hyper-V, WSL2, Sandbox, NFS, Legacy Media
+- **Repair Scripts** — SFC Scan, DISM Restore, Network Reset, Windows Update Reset, AutoLogon config
+
+### 🎛️ Preferences
+20 registry-based toggles applied immediately: dark theme, taskbar alignment, file extensions, hidden files, Num Lock, Caps Lock, S3 sleep, battery percentage, sticky keys, mouse acceleration, smooth scrolling, and more.
+
+### 🖥️ Legacy Panels
+One-click access to Control Panel, Device Manager, Network Connections, Disk Management, Services, Event Viewer, Registry Editor, System Properties, and Task Scheduler.
+
+### ⚙️ Settings Dashboard
+- **DNS Switcher** — Google, Cloudflare, OpenDNS, Quad9, AdGuard
+- **Export/Import** — Save and restore app selections
+- **Terminal Profile** — Install PowerShell profile with `hksutil` command alias
+- **Auto-Apply** — Headless mode via `-Noui -Config <path> -Apply`
+
+## Installation
+
+### One-liner (Admin PowerShell)
 ```powershell
 irm "https://raw.githubusercontent.com/hartkitsak/HksUtil/main/launcher.ps1" | iex
 ```
 
-Or clone and run locally:
-
+### Manual (clone)
 ```powershell
 git clone https://github.com/hartkitsak/HksUtil.git
 cd HksUtil
 .\app.ps1
 ```
 
-## Features
+> ⚠️ **Admin required.** The script auto-elevates if not running as Administrator.
 
-### 📦 Install Apps
-Browse and install/uninstall applications via **WinGet** or **Chocolatey**. Search by name, filter by installed status, collapse categories. Apps are organized into categories and displayed in a 3-column grid.
+## Usage
 
-### ⚙️ System Tweaks
-Apply or undo Windows tweaks with one click. Categories include:
-- **Performance** — Disable Superfetch, disable search indexing, high performance power plan, visual effects tuning
-- **Privacy** — Disable telemetry, activity history, location tracking
-- **Essential Tweaks** — Telemetry & services, remove pre-installed apps, disk cleanup, widgets removal, WPBT disable, and more
-- **UI** — Small taskbar icons
+### GUI Mode
+```powershell
+.\app.ps1
+```
 
-### 🔧 Features & Fixes
-- **Windows Features** — Enable .NET Framework, Hyper-V, WSL2, Windows Sandbox, NFS, legacy media components, registry backup tasks
-- **Fixes** — AutoLogon, network reset, NTP sync, SFC scan, Windows Update reset, WinGet reinstall
+### Headless Mode
+Apply apps and tweaks from a config file without opening the UI:
+```powershell
+.\app.ps1 -Noui -Config .\config\my-config.json -Apply
+```
 
-### 🎛️ Preferences
-Toggle registry-based Windows settings on/off:
-BSoD verbose mode, taskbar alignment, search icon, dark theme, file extensions, hidden files, S3 sleep, battery percentage, scrollbars, sticky keys, Num Lock, mouse acceleration, and more.
-
-### 🧹 Clean
-Clean temp files and Windows Update cache.
-
-### 🖥️ Legacy Panels
-Quick access to classic Windows control panel tools.
-
-### ⚙️ Settings
-- **Theme** — Dark / Light mode
-- **DNS** — Switch DNS providers (Google, Cloudflare, OpenDNS, Quad9, AdGuard)
-- **Export/Import** — Save and restore app selections and preferences
+### Export Config
+Save current selections to a portable config file:
+```powershell
+.\app.ps1 -Export .\config\exported.json
+```
 
 ## Requirements
 
-- Windows 10 / Windows 11
-- PowerShell 5.1+ or PowerShell 7+
-- WinGet (built-in on Windows 11 and latest Windows 10)
-- Internet connection for first run
+| Component | Version |
+|-----------|---------|
+| OS | Windows 10 / Windows 11 (64-bit) |
+| PowerShell | 5.1 or later |
+| .NET | Framework 4.8 (included with Windows 10+) |
+| WinGet | Ships with Windows 11 / available via App Installer |
+| Chocolatey | Auto-installed on first use (optional) |
 
 ## Project Structure
 
-```
-HksUtil/
-├── app.ps1              # Main script (WPF GUI + logic)
-├── ui.xaml              # XAML layout
-├── launcher.ps1         # Bootstrap for irm | iex
-├── config/
-│   ├── apps.json        # Application catalog
-│   ├── tweaks.json      # Tweak definitions
-│   ├── features.json    # Features & fixes
-│   ├── preferences.json # Registry-based toggles
-│   └── dns.json         # DNS provider list
-├── themes/
-│   ├── Dark.xaml        # Dark theme ResourceDictionary
-│   └── Light.xaml       # Light theme ResourceDictionary
+<details>
+<summary>Click to expand</summary>
 
 ```
+HksUtil/
+├── app.ps1                 # Entry point — auto-elevate, config load, XAML bootstrap
+├── launcher.ps1             # One-liner bootstrap for remote execution
+├── config/
+│   └── config.json          # Unified configuration (apps, tweaks, themes, DNS)
+├── xaml/
+│   └── ui.xaml              # WPF layout (~660 lines)
+├── modules/
+│   ├── logger.ps1           # Terminal logging, message boxes
+│   ├── core.ps1             # Async dispatch, progress overlay, cache, headless mode
+│   ├── theme.ps1            # JSON → BrushConverter runtime theming
+│   ├── navigation.ps1       # Page switching, keyboard shortcuts
+│   ├── tweaks.ps1           # Tweak engine, undo log, System Restore integration
+│   ├── search.ps1           # Live search and installed filter
+│   ├── toolbar.ps1          # Title bar controls, gear menu handlers
+│   ├── dns.ps1              # DNS provider switcher
+│   ├── terminal.ps1         # Terminal input handler, profile management
+│   ├── utility.ps1          # Desktop shortcut creation
+│   ├── build.ps1            # Dynamic UI builder from config
+│   ├── install.ps1          # Batch install/uninstall engine
+│   └── features.ps1         # Windows feature toggles
+└── tests/                   # Pester test suite (32 tests, 7 files)
+```
+
+</details>
+
+## Tech Stack
+
+| Layer | Technology |
+|-------|-----------|
+| Language | PowerShell 5.1 |
+| UI Framework | WPF via XAML |
+| Package Managers | WinGet CLI, Chocolatey CLI |
+| Runtime | .NET Framework 4.8 |
+| Testing | Pester 3.4.0 |
+| Theming | JSON color config → runtime `BrushConverter` |
 
 ## Customization
 
-Edit the JSON files in `config/` to add your own apps, tweaks, or preferences. The app catalog in `apps.json` follows this structure:
+Edit `config/config.json` to add applications, tweaks, preferences, DNS providers, or themes. The JSON schema uses the following structure:
 
 ```json
 {
-  "CategoryName": {
-    "app_key": {
-      "content": "Display Name",
-      "winget": "Publisher.PackageName",
-      "description": "Tooltip description"
-    }
-  }
+  "meta": { "version": "2.0", "author": "..." },
+  "themes": { "dark": { "Background": "#FF1E1E1E", ... } },
+  "apps": { "Category": { "app_key": { "content": "...", "winget": "...", "description": "..." } } },
+  "tweaks": { ... },
+  "dns": { ... },
+  "preferences": { ... },
+  "features": { ... }
 }
 ```
 
+All sections are self-documenting — refer to the field names in `config.json` for available keys.
+
 ## License
 
-MIT
+MIT — see [LICENSE](LICENSE) for details.

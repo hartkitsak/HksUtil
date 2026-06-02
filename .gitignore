@@ -6,4 +6,5 @@
 *.lnk
 .DS_Store
 Thumbs.db
+testResults.xml
 app.ps1.bak

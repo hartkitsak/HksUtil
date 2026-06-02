@@ -1,0 +1,38 @@
+$script:pages = @{}
+$script:navButtons = @{}
+$script:navNames = @("Install", "Tweaks", "Features", "Preferences", "Legacy", "Settings")
+
+foreach ($n in $navNames) {
+    $pages[$n] = $controls["Page$n"]
+    $navButtons[$n] = $controls["Nav$n"]
+}
+
+function Show-NavPanel {
+    param($Name)
+    foreach ($other in $navNames) {
+        if ($controls["Page$other"]) { $controls["Page$other"].Visibility = "Collapsed" }
+    }
+    if ($controls["Page$Name"]) { $controls["Page$Name"].Visibility = "Visible"; $sync.currentTab = $Name; Write-Log "Switched to: $Name" "Info" }
+}
+
+function Switch-Page { param($Name); Show-NavPanel $Name }
+
+foreach ($navName in $navNames) {
+    $btnName = "Nav$navName"
+    $btn = $controls[$btnName]
+    if ($btn) {
+        $btn.Tag = $navName
+        $btn.Add_Click({ Show-NavPanel $this.Tag })
+        if ($btn.PSObject.Properties.Name -contains "IsEnabled") { $btn.IsEnabled = $true }
+        Write-Log "Navigation: $btnName wired." "Success"
+    } else { Write-Log "Navigation button $btnName not found." "Warn" }
+}
+
+$window.Add_KeyDown({
+    param($sender, $e)
+    if ($e.Key -eq "Escape" -and $controls["SearchBox"]) {
+        $controls["SearchBox"].Text = ""
+        Show-NavPanel $navNames[0]
+        $e.Handled = $true
+    }
+})
