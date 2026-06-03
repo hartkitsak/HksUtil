@@ -125,6 +125,7 @@
     }
   },
   "dns": {
+    "Default_DHCP": { "description": "Default DHCP (reset to auto)" },
     "Google": { "description": "Google Public DNS", "ipv4": ["8.8.8.8","8.8.4.4"], "ipv6": ["2001:4860:4860::8888","2001:4860:4860::8844"] },
     "Cloudflare": { "description": "Cloudflare DNS (1.1.1.1)", "ipv4": ["1.1.1.1","1.0.0.1"], "ipv6": ["2606:4700:4700::1111","2606:4700:4700::1001"] },
     "Cloudflare_Malware": { "description": "Cloudflare Malware Protection", "ipv4": ["1.1.1.2","1.0.0.2"], "ipv6": ["2606:4700:4700::1112","2606:4700:4700::1002"] },
