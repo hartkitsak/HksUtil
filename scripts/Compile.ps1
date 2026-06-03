@@ -32,7 +32,12 @@ $moduleOrder = @(
 foreach ($mod in $moduleOrder) {
     $modPath = Join-Path (Join-Path $root "modules") $mod
     if (Test-Path $modPath) {
-        $script.Add((Get-Content $modPath -Raw))
+        $modContent = Get-Content $modPath -Raw
+        $modName = $mod -replace '\.ps1$',''
+        $bytes = [System.Text.Encoding]::UTF8.GetBytes($modContent)
+        $b64 = [Convert]::ToBase64String($bytes)
+        $script.Add("`$script:__mod_$modName = [System.Text.Encoding]::UTF8.GetString([Convert]::FromBase64String('$b64'))")
+        $script.Add($modContent)
     }
 }
 
@@ -133,16 +138,12 @@ foreach ($k in @($controls.Keys)) { if (-not $controls[$k]) { $controls.Remove($
 Apply-Theme "dark"
 if ($controls["TitleText"]) { $controls["TitleText"].Add_MouseLeftButtonDown({ $window.DragMove() }) }
 
-. "$script:appRoot\modules\navigation.ps1"
-. "$script:appRoot\modules\tweaks.ps1"
-. "$script:appRoot\modules\search.ps1"
-. "$script:appRoot\modules\toolbar.ps1"
-. "$script:appRoot\modules\dns.ps1"
-. "$script:appRoot\modules\terminal.ps1"
-. "$script:appRoot\modules\utility.ps1"
-. "$script:appRoot\modules\build.ps1"
-. "$script:appRoot\modules\install.ps1"
-. "$script:appRoot\modules\features.ps1"
+$script:__modOrder = @("logger","core","theme","navigation","tweaks","search","toolbar","dns","terminal","utility","build","install","features")
+foreach ($_m in $script:__modOrder) {
+    $_var = "__mod_$_m"
+    $_code = Get-Variable $_var -ValueOnly -ErrorAction SilentlyContinue
+    if ($_code) { . ([ScriptBlock]::Create($_code)) }
+}
 
 if ($controls["BtnClearSearch"]) { $controls["BtnClearSearch"].Add_Click({ if ($controls["SearchBox"]) { $controls["SearchBox"].Text = ""; $controls["SearchBox"].Focus() } }) }
 if ($controls["BtnSelectAll"]) { $controls["BtnSelectAll"].Add_Click({ foreach ($cb in $appCheckboxes) { if ($cb.Visibility -eq "Visible") { $cb.IsChecked = $true } }; Update-SelectedCount; Write-Log "All visible apps selected." "Info" }) }
@@ -187,7 +188,8 @@ try { $window.ShowDialog() | Out-Null } catch { Write-Log "UI Runtime Error: $_"
 Write-Log "HksUtil Closed." "Header"
 '@)
 
-Set-Content -Path $outputPath -Value $script -Encoding UTF8
+$utf8NoBom = New-Object System.Text.UTF8Encoding $false
+[System.IO.File]::WriteAllText($outputPath, ($script -join "`r`n"), $utf8NoBom)
 Write-Host "Compiled -> $outputPath (v$version)" -ForegroundColor Green
 
 if ($Run) {

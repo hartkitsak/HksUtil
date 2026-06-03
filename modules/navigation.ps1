@@ -2,11 +2,6 @@ $script:pages = @{}
 $script:navButtons = @{}
 $script:navNames = @("Install", "Tweaks", "Features", "Preferences", "Legacy", "Settings")
 
-foreach ($n in $navNames) {
-    if ($controls["Page$n"]) { $pages[$n] = $controls["Page$n"] }
-    if ($controls["Nav$n"]) { $navButtons[$n] = $controls["Nav$n"] }
-}
-
 function Show-NavPanel {
     param($Name)
     foreach ($other in $navNames) {
@@ -17,23 +12,28 @@ function Show-NavPanel {
 
 function Switch-Page { param($Name); Show-NavPanel $Name }
 
-foreach ($navName in $navNames) {
-    $btnName = "Nav$navName"
-    $btn = $controls[$btnName]
-    if ($btn) {
-        $btn.Tag = $navName
-        $btn.Add_Click({ Show-NavPanel $this.Tag })
-        if ($btn.PSObject.Properties.Name -contains "IsEnabled") { $btn.IsEnabled = $true }
-        Write-Log "Navigation: $btnName wired." "Success"
-    } else { Write-Log "Navigation button $btnName not found." "Warn" }
-}
-
-if ($window) { $window.Add_KeyDown({
-    param($sender, $e)
-        if ($e.Key -eq "Escape" -and $controls["SearchBox"]) {
-            $controls["SearchBox"].Text = ""
-            Show-NavPanel $navNames[0]
-            $e.Handled = $true
+if ($controls.Count) {
+    foreach ($n in $navNames) {
+        if ($controls["Page$n"]) { $pages[$n] = $controls["Page$n"] }
+        if ($controls["Nav$n"]) { $navButtons[$n] = $controls["Nav$n"] }
+    }
+    foreach ($navName in $navNames) {
+        $btnName = "Nav$navName"
+        $btn = $controls[$btnName]
+        if ($btn) {
+            $btn.Tag = $navName
+            $btn.Add_Click({ Show-NavPanel $this.Tag })
+            if ($btn.PSObject.Properties.Name -contains "IsEnabled") { $btn.IsEnabled = $true }
+            Write-Log "Navigation: $btnName wired." "Success"
         }
-    })
+    }
+    if ($window) { $window.Add_KeyDown({
+        param($sender, $e)
+            if ($e.Key -eq "Escape" -and $controls["SearchBox"]) {
+                $controls["SearchBox"].Text = ""
+                Show-NavPanel $navNames[0]
+                $e.Handled = $true
+            }
+        })
+    }
 }
