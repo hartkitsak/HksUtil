@@ -24,9 +24,7 @@ jobs:
       shell: pwsh
       continue-on-error: true
       run: |
-        $settings = if (Test-Path "lint/PSScriptAnalyser.ps1") {
-          . ./lint/PSScriptAnalyser.ps1
-        } else { @{} }
+        $settings = @{ ExcludeRules = @('PSAvoidUsingWriteHost') }
         $results = Invoke-ScriptAnalyzer -Path . -Settings $settings -Recurse -Exclude @("*.Tests.ps1", "hksutil.ps1")
         $results | Format-Table Severity, RuleName, ScriptName, Line, Message -AutoSize -Wrap
         if ($results) { Write-Host "## $($results.Count) issues found" }

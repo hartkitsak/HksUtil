@@ -14,7 +14,7 @@ if ($controls["BtnToolbarMaximize"]) {
 
 if ($controls["BtnToolbarTheme"]) {
     $controls["BtnToolbarTheme"].Add_Click({
-        if ($script:currentTheme -eq "dark") { Set-Theme "light" } else { Set-Theme "dark" }
+        if ($script:currentTheme -eq "dark") { Apply-Theme "light" } else { Apply-Theme "dark" }
     })
 }
 

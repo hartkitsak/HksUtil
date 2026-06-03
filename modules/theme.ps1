@@ -1,8 +1,6 @@
 $script:currentTheme = "dark"
 
-function Apply-Theme { param($n); Set-Theme $n }
-
-function Set-Theme {
+function Apply-Theme {
     param($ThemeName)
     $key = $ThemeName.ToLower()
     if (-not $script:themesConfig -or -not $script:themesConfig.$key) {

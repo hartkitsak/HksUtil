@@ -57,8 +57,8 @@ function Invoke-TerminalAction {
     switch -Wildcard ($lower) {
         "clear" { $script:logLines.Clear(); Show-HksUtilLogo; return $null }
         "help" { return "Commands: clear, help, theme <dark|light>, winget <args>, choco <args>, ps <cmd>" }
-        "theme dark" { Set-Theme "dark"; return $null }
-        "theme light" { Set-Theme "light"; return $null }
+        "theme dark" { Apply-Theme "dark"; return $null }
+        "theme light" { Apply-Theme "light"; return $null }
         default {
             if ($lower -match "^(winget|choco)\s") {
                 $cmd = $InputText.Trim()
