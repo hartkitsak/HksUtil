@@ -7,6 +7,7 @@ if ($controls["DnsRadioPanel"] -and $dnsConfig) {
     $isFirst = $true
     foreach ($dnsName in $script:dnsNames) {
         $dns = $dnsConfig.$dnsName
+        if (-not $dns) { continue }
         $rb = New-Object System.Windows.Controls.RadioButton
         $rb.Tag = $dnsName; $rb.Style = Get-WpfResource "DnsCardStyle"; $rb.GroupName = "DnsProvider"
         $sp = New-Object System.Windows.Controls.StackPanel; $sp.Orientation = "Horizontal"; $sp.VerticalAlignment = "Center"

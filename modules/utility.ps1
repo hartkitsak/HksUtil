@@ -7,10 +7,11 @@ if ($controls["BtnCreateShortcut"]) {
         try {
             $wshell = New-Object -ComObject WScript.Shell
             $shortcut = $wshell.CreateShortcut($lnkPath)
-            $shortcut.TargetPath = "C:\WINDOWS\System32\WindowsPowerShell\v1.0\powershell.exe"
-            $shortcut.Arguments = '-ExecutionPolicy Bypass -Command "Start-Process powershell.exe -verb runas -ArgumentList ''-Command \"irm https://raw.githubusercontent.com/hartkitsak/HksUtil/main/hksutil.ps1 | iex\"''"'
+            $pwshPath = (Get-Command powershell.exe).Source
+            $shortcut.TargetPath = $pwshPath
+            $shortcut.Arguments = "-ExecutionPolicy RemoteSigned -NoProfile -File `"$($script:appRoot)\app.ps1`""
             $shortcut.Description = "HksUtil v2.0 - Windows Optimizer"
-            $shortcut.IconLocation = "C:\WINDOWS\system32\pifmgr.dll, 4"
+            $shortcut.IconLocation = "$([Environment]::SystemDirectory)\shell32.dll, 1"
             $shortcut.Save()
             Write-Log "Desktop shortcut created." "Success"
             Show-Info "Shortcut Created" "Desktop shortcut created.`n$lnkPath"

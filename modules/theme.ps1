@@ -16,6 +16,7 @@ function Apply-Theme {
             $brush = $converter.ConvertFrom($colors.$prop)
             $newDict.Add($prop, $brush)
         }
+        if ($converter -and $converter.GetType().GetMethod('Dispose')) { $converter.Dispose() }
 
         $script:currentTheme = $ThemeName
         Write-Log "Theme: $ThemeName" "Success"

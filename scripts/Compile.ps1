@@ -30,7 +30,7 @@ $moduleOrder = @(
     "utility.ps1", "build.ps1", "install.ps1", "features.ps1"
 )
 foreach ($mod in $moduleOrder) {
-    $modPath = Join-Path $root "modules" $mod
+    $modPath = Join-Path (Join-Path $root "modules") $mod
     if (Test-Path $modPath) {
         $script.Add((Get-Content $modPath -Raw))
     }
@@ -61,6 +61,7 @@ $cfgJson
     }
 }
 $script.Add(@"
+`$script:metaConfig = if (`$script:embedded_meta) { `$script:embedded_meta } else { @{} }
 `$script:appsConfig = if (`$script:embedded_apps) { `$script:embedded_apps } else { @{} }
 `$script:tweaksConfig = if (`$script:embedded_tweaks) { `$script:embedded_tweaks } else { @{} }
 `$script:dnsConfig = if (`$script:embedded_dns) { `$script:embedded_dns } else { @{} }
@@ -118,7 +119,7 @@ if ($NoUI) {
 }
 
 try {
-    $xamlContent = $script:embeddedXaml -replace 'x:Name', 'Name'
+    $xamlContent = $script:embeddedXaml -replace 'x:Name="([^"]+)"', 'Name="$1"'
     [xml]$xaml = $xamlContent
     $reader = New-Object System.Xml.XmlNodeReader $xaml
     $window = [Windows.Markup.XamlReader]::Load($reader)

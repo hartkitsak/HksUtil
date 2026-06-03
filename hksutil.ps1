@@ -1,8 +1,8 @@
-<#
+﻿<#
 .NOTES
     Author  : hartkitsak
     GitHub  : https://github.com/hartkitsak/HksUtil
-    Version : 69.06.03
+    Version : 26.06.03
 #>
 
 param(
@@ -25,7 +25,7 @@ if (-not $isAdmin) {
     $PSBoundParameters.GetEnumerator() | ForEach-Object {
         $argList += if ($_.Value -is [switch] -and $_.Value) { "-$($_.Key)" }
         elseif ($_.Value -is [array]) { "-$($_.Key) $($_.Value -join ',')" }
-        elseif ($_.Value) { "-$($_.Key) '$($_.Value)'" }
+        elseif ($null -ne $_.Value) { "-$($_.Key) '$($_.Value)'" }
     }
     $scriptCmd = if ($PSCommandPath) {
         "& { & '$PSCommandPath' $($argList -join ' ') }"
@@ -37,7 +37,7 @@ if (-not $isAdmin) {
     exit
 }
 
-$script:hksVersion = "69.06.03"
+$script:hksVersion = "26.06.03"
 $script:NoUI = $Noui
 
 $controls = @{}
@@ -176,11 +176,15 @@ function Update-InstalledCache {
     $script:installedAppIds = @{}
     if (-not (Get-Command winget -ErrorAction SilentlyContinue)) { Write-Log "winget not available." "Warn"; return }
     try {
-        $output = winget list --accept-source-agreements 2>&1 | Out-String
+        $lines = winget list --accept-source-agreements 2>&1 | Where-Object { $_ -match '^[\w\-\.]+\s+' }
+        $installedIds = @{}
+        foreach ($line in $lines) {
+            if ($line -match '^([\w\-\.]+)\s+') { $installedIds[$matches[1].ToLower()] = $true }
+        }
         foreach ($cat in $appsConfig.PSObject.Properties.Name) {
             foreach ($appKey in $appsConfig.$cat.PSObject.Properties.Name) {
                 $id = $appsConfig.$cat.$appKey.winget
-                if ($id -and $output -match "\b$([regex]::Escape($id))\b") {
+                if ($id -and $installedIds.ContainsKey($id.ToLower())) {
                     $script:installedAppIds[$id] = $true
                 }
             }
@@ -208,6 +212,7 @@ function Apply-Theme {
             $brush = $converter.ConvertFrom($colors.$prop)
             $newDict.Add($prop, $brush)
         }
+        if ($converter -and $converter.GetType().GetMethod('Dispose')) { $converter.Dispose() }
 
         $script:currentTheme = $ThemeName
         Write-Log "Theme: $ThemeName" "Success"
@@ -279,7 +284,7 @@ function Save-OriginalValues {
     if ($tweak.PSObject.Properties.Name -contains "registry") {
         foreach ($reg in $tweak.registry) {
             $currentValue = $null
-            if (Test-Path $reg.path) {
+            if ($reg.path -and (Test-Path $reg.path)) {
                 try { $currentValue = (Get-ItemProperty $reg.path -Name $reg.name -ErrorAction SilentlyContinue).$($reg.name) } catch { Write-Log "Registry read failed for undo: $_" "Warn" }
             }
             $undoEntry.Registry += @{ Path = $reg.path; Name = $reg.name; OriginalValue = $currentValue; Type = $reg.type }
@@ -333,7 +338,7 @@ function Invoke-UndoTweaks {
     if ($rbRestore.IsChecked) {
         try {
             $rp = Get-ComputerRestorePoint | Sort-Object CreationTime -Descending | Select-Object -First 1
-            if ($rp) { Write-Log "Starting system restore to $($rp.Description)..." "Header"; Restore-Computer -RestorePoint $rp.SequenceNumber -Confirm:$false }
+            if ($rp) { Write-Log "Starting system restore to $($rp.Description)..." "Header"; Show-Info "System Restore" "Your computer will restart to complete the system restore."; Restore-Computer -RestorePoint $rp.SequenceNumber -Confirm:$false }
         } catch { Write-Log "System restore failed: $_" "Error" }
         return
     }
@@ -361,7 +366,7 @@ function Invoke-UndoTweaks {
             } catch { Write-Log "Registry undo failed: $_" "Error" }
         }
         foreach ($scriptBlock in $entry.Scripts) {
-            try { Invoke-Expression $scriptBlock; Write-Log "Undo script executed." "Success" } catch { Write-Log "Undo script failed: $_" "Error" }
+            try { & ([scriptblock]::Create($scriptBlock)); Write-Log "Undo script executed." "Success" } catch { Write-Log "Undo script failed: $_" "Error" }
         }
     }
     $script:tweakUndoLog = @{}
@@ -410,7 +415,7 @@ if ($controls["BtnRunTweaks"]) {
                 }
             }
             if ($tweak.PSObject.Properties.Name -contains "script") {
-                try { Invoke-Expression $tweak.script; Write-Log "Script executed." "Success" } catch { Write-Log "Script failed: $_" "Error" }
+                try { & ([scriptblock]::Create($tweak.script)); Write-Log "Script executed." "Success" } catch { Write-Log "Script failed: $_" "Error" }
             }
             if ($tweak.PSObject.Properties.Name -contains "info") { Write-Log $tweak.info "Warn" }
         }
@@ -603,6 +608,7 @@ if ($controls["DnsRadioPanel"] -and $dnsConfig) {
     $isFirst = $true
     foreach ($dnsName in $script:dnsNames) {
         $dns = $dnsConfig.$dnsName
+        if (-not $dns) { continue }
         $rb = New-Object System.Windows.Controls.RadioButton
         $rb.Tag = $dnsName; $rb.Style = Get-WpfResource "DnsCardStyle"; $rb.GroupName = "DnsProvider"
         $sp = New-Object System.Windows.Controls.StackPanel; $sp.Orientation = "Horizontal"; $sp.VerticalAlignment = "Center"
@@ -672,7 +678,10 @@ if ($controls["BtnTerminalDotfiles"]) {
     $controls["BtnTerminalDotfiles"].Add_Click({
         Write-Log "Installing Nova profile..." "Info"
         try {
-            iex (irm "https://raw.githubusercontent.com/hartkitsak/nova/master/install.ps1")
+            $tmp = "$env:TEMP\nova-install.ps1"
+            Invoke-WebRequest -Uri "https://raw.githubusercontent.com/hartkitsak/nova/master/install.ps1" -OutFile $tmp -UseBasicParsing
+            & $tmp
+            Remove-Item $tmp -Force -ErrorAction SilentlyContinue
             Write-Log "Nova install complete." "Success"
         } catch { Write-Log "Nova install failed: $_" "Error" }
     })
@@ -682,7 +691,10 @@ if ($controls["BtnUninstallTerminal"]) {
     $controls["BtnUninstallTerminal"].Add_Click({
         Write-Log "Uninstalling Nova profile..." "Info"
         try {
-            iex (irm "https://raw.githubusercontent.com/hartkitsak/nova/master/uninstall.ps1")
+            $tmp = "$env:TEMP\nova-uninstall.ps1"
+            Invoke-WebRequest -Uri "https://raw.githubusercontent.com/hartkitsak/nova/master/uninstall.ps1" -OutFile $tmp -UseBasicParsing
+            & $tmp
+            Remove-Item $tmp -Force -ErrorAction SilentlyContinue
             Write-Log "Nova uninstall complete." "Success"
         } catch { Write-Log "Nova uninstall failed: $_" "Error" }
     })
@@ -697,10 +709,11 @@ if ($controls["BtnCreateShortcut"]) {
         try {
             $wshell = New-Object -ComObject WScript.Shell
             $shortcut = $wshell.CreateShortcut($lnkPath)
-            $shortcut.TargetPath = "C:\WINDOWS\System32\WindowsPowerShell\v1.0\powershell.exe"
-            $shortcut.Arguments = '-ExecutionPolicy Bypass -Command "Start-Process powershell.exe -verb runas -ArgumentList ''-Command \"irm https://raw.githubusercontent.com/hartkitsak/HksUtil/main/hksutil.ps1 | iex\"''"'
+            $pwshPath = (Get-Command powershell.exe).Source
+            $shortcut.TargetPath = $pwshPath
+            $shortcut.Arguments = "-ExecutionPolicy RemoteSigned -NoProfile -File `"$($script:appRoot)\app.ps1`""
             $shortcut.Description = "HksUtil v2.0 - Windows Optimizer"
-            $shortcut.IconLocation = "C:\WINDOWS\system32\pifmgr.dll, 4"
+            $shortcut.IconLocation = "$([Environment]::SystemDirectory)\shell32.dll, 1"
             $shortcut.Save()
             Write-Log "Desktop shortcut created." "Success"
             Show-Info "Shortcut Created" "Desktop shortcut created.`n$lnkPath"
@@ -751,7 +764,7 @@ if (($controls["AppPanel1"] -and $controls["AppPanel2"] -and $controls["AppPanel
                 if (-not (Ensure-PackageManager $pkg)) { Show-Info "Error" "Failed to ensure $pkg."; return }
                 if (-not (Show-Confirm "Install" "Install $id via $pkg?")) { return }
                 Show-Progress -Text "Installing: $id" -Value 0.5
-                try { if ($pkg -eq "winget") { winget install --id=$id --silent --accept-package-agreements 2>&1 | Out-Null } else { choco install $id -y 2>&1 | Out-Null }; Write-Log "Installed: $id" "Success" } catch { Write-Log "Failed: $id" "Error" }
+                try { if ($pkg -eq "winget") { winget install --id=$id --silent --accept-package-agreements --accept-source-agreements 2>&1 | Out-Null } else { choco install $id -y 2>&1 | Out-Null }; Write-Log "Installed: $id" "Success" } catch { Write-Log "Failed: $id" "Error" }
                 Hide-Progress; Update-InstalledCache; Show-Info "Done" "Install of $id completed."
             })
             $miUninstall = New-Object System.Windows.Controls.MenuItem; $miUninstall.Header = "Uninstall"; $miUninstall.Tag = $app.winget
@@ -760,7 +773,7 @@ if (($controls["AppPanel1"] -and $controls["AppPanel2"] -and $controls["AppPanel
                 if (-not (Ensure-PackageManager $pkg)) { Show-Info "Error" "Failed to ensure $pkg."; return }
                 if (-not (Show-Confirm "Uninstall" "Uninstall $id via $pkg?")) { return }
                 Show-Progress -Text "Uninstalling: $id" -Value 0.5
-                try { if ($pkg -eq "winget") { winget uninstall --id=$id --silent --purge 2>&1 | Out-Null } else { choco uninstall $id -y 2>&1 | Out-Null }; Write-Log "Uninstalled: $id" "Success" } catch { Write-Log "Failed: $id" "Error" }
+                try { if ($pkg -eq "winget") { winget uninstall --id=$id --silent --purge --accept-source-agreements 2>&1 | Out-Null } else { choco uninstall $id -y 2>&1 | Out-Null }; Write-Log "Uninstalled: $id" "Success" } catch { Write-Log "Failed: $id" "Error" }
                 Hide-Progress; Update-InstalledCache; Show-Info "Done" "Uninstall of $id completed."
             })
             $miInfo = New-Object System.Windows.Controls.MenuItem; $miInfo.Header = "Info"; $miInfo.Tag = $app
@@ -795,11 +808,13 @@ if ($controls["PrefsPanel1"] -and $controls["PrefsPanel2"] -and $controls["Prefs
         $cb.IsChecked = if ($hasRegistryOn) { $currentState -eq $pref.registry_on[0].value } else { $false }
         $cb.Add_Checked({
             $pk = $this.Tag; $p = $prefsConfig.$pk
+            if (-not $p) { return }
             if ($p.PSObject.Properties.Name -contains "registry_on") { foreach ($r in $p.registry_on) { try { if (!(Test-Path $r.path)) { New-Item $r.path -Force | Out-Null }; $t = if ($r.type) { $r.type } else { "String" }; Set-ItemProperty $r.path -Name $r.name -Value $r.value -Type $t -Force } catch { Write-Log "Registry write failed: $($r.path) $($r.name)" "Warn" } } }
             Write-Log "Pref ON: $($p.content)" "Success"
         })
         $cb.Add_Unchecked({
             $pk = $this.Tag; $p = $prefsConfig.$pk
+            if (-not $p) { return }
             if ($p.PSObject.Properties.Name -contains "registry_off") { foreach ($r in $p.registry_off) { try { if (!(Test-Path $r.path)) { New-Item $r.path -Force | Out-Null }; $t = if ($r.type) { $r.type } else { "String" }; Set-ItemProperty $r.path -Name $r.name -Value $r.value -Type $t -Force } catch { Write-Log "Registry write failed: $($r.path) $($r.name)" "Warn" } } }
             Write-Log "Pref OFF: $($p.content)" "Warn"
         })
@@ -919,9 +934,15 @@ function Ensure-PackageManager {
             Add-AppxPackage -Path $out -ErrorAction Stop
             Remove-Item $out -Force -ErrorAction SilentlyContinue
         } elseif ($Pkg -eq "choco") {
-            Set-ExecutionPolicy Bypass -Scope Process -Force
-            [System.Net.ServicePointManager]::SecurityProtocol = [System.Net.ServicePointManager]::SecurityProtocol -bor 3072
-            Invoke-Expression ((New-Object System.Net.WebClient).DownloadString('https://community.chocolatey.org/install.ps1'))
+            $chocoPath = "$env:PROGRAMDATA\chocolatey\choco.exe"
+            if (-not (Test-Path $chocoPath)) {
+                Set-ExecutionPolicy Bypass -Scope Process -Force
+                [System.Net.ServicePointManager]::SecurityProtocol = [System.Net.ServicePointManager]::SecurityProtocol -bor 3072
+                $tmp = "$env:TEMP\choco-install.ps1"
+                Invoke-WebRequest -Uri 'https://community.chocolatey.org/install.ps1' -OutFile $tmp -UseBasicParsing
+                & $tmp
+                Remove-Item $tmp -Force -ErrorAction SilentlyContinue
+            }
         }
         if (Get-Command $Pkg -ErrorAction SilentlyContinue) { Write-Log "$Pkg installed." "Success"; return $true }
         Write-Log "$Pkg install completed but command not found." "Warn"; return $false
@@ -985,10 +1006,10 @@ if ($controls["BtnUninstall"]) {
                 Write-Log "Deep Cleaning $id..." "Info"; Set-Status "Cleaning $id leftovers..."
                 foreach ($term in ($id -split '\.') | Where-Object { $_.Length -gt 4 }) {
                     foreach ($basePath in @($env:APPDATA, $env:LOCALAPPDATA, $env:PROGRAMDATA)) {
-                        Get-ChildItem -Path $basePath -Directory -Filter "*$term*" -ErrorAction SilentlyContinue | ForEach-Object { try { Remove-Item $_.FullName -Recurse -Force; Write-Log "Deleted: $($_.FullName)" "Success" } catch { Write-Log "Cleanup dir failed: $($_.FullName)" "Warn" } }
+                        Get-ChildItem -Path $basePath -Directory -Filter "*$term*" -ErrorAction SilentlyContinue -Depth 2 | ForEach-Object { try { Remove-Item $_.FullName -Recurse -Force; Write-Log "Deleted: $($_.FullName)" "Success" } catch { Write-Log "Cleanup dir failed: $($_.FullName)" "Warn" } }
                     }
                     foreach ($regPath in @("HKCU:\Software", "HKLM:\SOFTWARE\WOW6432Node")) {
-                        if (Test-Path $regPath) { Get-ChildItem -Path $regPath -ErrorAction SilentlyContinue | Where-Object { $_.Name.Contains($term) } | ForEach-Object { try { Remove-Item $_.PSPath -Recurse -Force; Write-Log "Deleted Reg: $($_.Name)" "Success" } catch { Write-Log "Cleanup reg failed: $($_.Name)" "Warn" } } }
+                        if (Test-Path $regPath) { Get-ChildItem -Path $regPath -ErrorAction SilentlyContinue -Depth 1 | Where-Object { $_.Name.Contains($term) } | ForEach-Object { try { Remove-Item $_.PSPath -Recurse -Force; Write-Log "Deleted Reg: $($_.Name)" "Success" } catch { Write-Log "Cleanup reg failed: $($_.Name)" "Warn" } } }
                     }
                 }
             }
@@ -1016,7 +1037,7 @@ if ($controls["BtnRunFeatures"] -and $featuresConfig -and $featuresConfig.PSObje
             $feat = $featuresConfig.Features.$featKey
             if (-not $feat) { continue }
             Write-Log "Running: $($feat.content)" "Info"
-            try { Invoke-Expression $feat.script; Write-Log "Feature completed: $($feat.content)" "Success" } catch { Write-Log "Feature failed: $($feat.content): $_" "Error" }
+            try { & ([scriptblock]::Create($feat.script)); Write-Log "Feature completed: $($feat.content)" "Success" } catch { Write-Log "Feature failed: $($feat.content): $_" "Error" }
         }
         Set-Status "Ready"
         Show-Info "Features Complete" "$($selected.Count) feature(s) applied."
@@ -1024,9 +1045,121 @@ if ($controls["BtnRunFeatures"] -and $featuresConfig -and $featuresConfig.PSObje
     })
 }
 
+$script:embedded_features = @'
+{
+  "Features": {
+    "dotnet": { "content": ".NET Framework (2, 3, 4)", "description": "Enable .NET Framework 3.5 and 4.8", "script": "Enable-WindowsOptionalFeature -Online -FeatureName NetFx3 -All -NoRestart; Enable-WindowsOptionalFeature -Online -FeatureName NetFx4-AdvSrvs -All -NoRestart" },
+    "hyperv": { "content": "Hyper-V", "description": "Enable Hyper-V virtualization", "script": "Enable-WindowsOptionalFeature -Online -FeatureName Microsoft-Hyper-V-All -All -NoRestart" },
+    "f8_boot_enable": { "content": "Legacy F8 Boot Recovery - Enable", "description": "Enable legacy F8 boot menu", "script": "bcdedit /set {default} bootmenupolicy legacy" },
+    "f8_boot_disable": { "content": "Legacy F8 Boot Recovery - Disable", "description": "Disable legacy F8 boot menu", "script": "bcdedit /set {default} bootmenupolicy standard" },
+    "legacy_media": { "content": "Legacy Media Components (WMP, DirectPlay)", "description": "Enable Windows Media Player and DirectPlay", "script": "Enable-WindowsOptionalFeature -Online -FeatureName 'WindowsMediaPlayer' -All -NoRestart; Enable-WindowsOptionalFeature -Online -FeatureName 'DirectPlay' -All -NoRestart" },
+    "nfs": { "content": "Network File System (NFS)", "description": "Enable Services for NFS", "script": "Enable-WindowsOptionalFeature -Online -FeatureName 'ServicesForNFS-ClientOnly' -All -NoRestart; Enable-WindowsOptionalFeature -Online -FeatureName 'ClientForNFS-Infrastructure' -All -NoRestart" },
+    "registry_backup": { "content": "Registry Backup (Daily Task 12:30am)", "description": "Schedule daily registry backup task", "script": "schtasks /create /tn 'Registry Backup' /tr 'regedit /e C:\\Windows\\System32\\config\\RegBack\\registry_backup.reg' /sc daily /st 00:30 /f" },
+    "sandbox": { "content": "Windows Sandbox", "description": "Enable Windows Sandbox", "script": "Enable-WindowsOptionalFeature -Online -FeatureName Containers-DisposableClientVM -All -NoRestart" },
+    "wsl": { "content": "Windows Subsystem for Linux (WSL)", "description": "Enable WSL2 and Virtual Machine Platform", "script": "Enable-WindowsOptionalFeature -Online -FeatureName Microsoft-Windows-Subsystem-Linux -All -NoRestart; Enable-WindowsOptionalFeature -Online -FeatureName VirtualMachinePlatform -All -NoRestart" }
+  },
+  "Fixes": {
+    "autologon": { "content": "AutoLogon - Run", "description": "Open the Autologon configuration tool", "script": "Start-Process 'https://live.sysinternals.com/Autologon.exe'" },
+    "reset_network": { "content": "Network - Reset", "description": "Reset TCP/IP, Winsock, flush DNS", "script": "netsh winsock reset; netsh int ip reset; ipconfig /release; ipconfig /renew; ipconfig /flushdns" },
+    "ntp_server": { "content": "NTP Server - Enable", "description": "Sync time with pool.ntp.org", "script": "w32tm /config /manualpeerlist:'pool.ntp.org' /syncfromflags:manual /reliable:yes /update; w32tm /resync" },
+    "sfc_scan": { "content": "System Corruption Scan - Run", "description": "Run SFC scan to check system files", "script": "sfc /scannow" },
+    "system_repair": { "content": "System Repair - Full (SFC + DISM)", "description": "Run SFC and DISM repair", "script": "sfc /scannow; dism /online /cleanup-image /restorehealth" },
+    "update_repair": { "content": "Windows Update - Full Repair", "description": "Complete Windows Update component repair", "script": "Stop-Service wuauserv,cryptSvc,bits,msiserver -Force; Ren -Path \"$env:SystemRoot\\SoftwareDistribution\" -NewName 'SoftwareDistribution.old' -ErrorAction SilentlyContinue; Ren -Path \"$env:SystemRoot\\System32\\catroot2\" -NewName 'catroot2.old' -ErrorAction SilentlyContinue; netsh winsock reset; Start-Service wuauserv,cryptSvc,bits,msiserver" },
+    "reset_wu": { "content": "Windows Update - Reset", "description": "Reset Windows Update components", "script": "Stop-Service wuauserv,cryptSvc,bits,msiserver -Force; Ren -Path \"$env:SystemRoot\\SoftwareDistribution\" -NewName 'SoftwareDistribution.old' -ErrorAction SilentlyContinue; Ren -Path \"$env:SystemRoot\\System32\\catroot2\" -NewName 'catroot2.old' -ErrorAction SilentlyContinue; Start-Service wuauserv,cryptSvc,bits,msiserver" },
+    "reinstall_winget": { "content": "WinGet - Reinstall", "description": "Reinstall WinGet package manager", "script": "Get-AppxPackage Microsoft.DesktopAppInstaller | Remove-AppxPackage; start 'ms-windows-store://pdp/?productid=9NBLGGH4NNS1'" }
+  }
+}
+
+'@ | ConvertFrom-Json
+$script:embedded_themes = @'
+{
+  "dark": {
+    "windowBackground": "#1C1C1E", "headerBackground": "#242426", "headerBorder": "#3A3A3C",
+    "footerBackground": "#242426", "footerBorder": "#3A3A3C",
+    "cardBackground": "#2C2C2E", "cardForeground": "#D4CEBC", "cardBorder": "#48484A",
+    "accentColor": "#4D9DE0", "accentHover": "#3A87C8",
+    "pageTitleColor": "#E8E0CC", "categoryHeaderColor": "#4D9DE0", "textMuted": "#8E8E93",
+    "textBoxBackground": "#2C2C2E", "textBoxForeground": "#D4CEBC", "textBoxBorder": "#48484A",
+    "dangerColor": "#C0392B", "dangerHover": "#962D22",
+    "selectedBorder": "#4D9DE0", "selectedBackground": "#162840",
+    "hoverBackground": "#262628", "secondaryBackground": "#242426", "secondaryHover": "#262628"
+  },
+  "light": {
+    "windowBackground": "#F4F8FC", "headerBackground": "#FFFFFF", "headerBorder": "#C4D9ED",
+    "footerBackground": "#FFFFFF", "footerBorder": "#C4D9ED",
+    "cardBackground": "#FFFFFF", "cardForeground": "#1A2733", "cardBorder": "#BDD3E8",
+    "accentColor": "#4D9DE0", "accentHover": "#3A87C8",
+    "pageTitleColor": "#1A2733", "categoryHeaderColor": "#4D9DE0", "textMuted": "#7A96AE",
+    "textBoxBackground": "#FFFFFF", "textBoxForeground": "#1A2733", "textBoxBorder": "#BDD3E8",
+    "dangerColor": "#C0392B", "dangerHover": "#962D22",
+    "selectedBorder": "#4D9DE0", "selectedBackground": "#E0EEFA",
+    "hoverBackground": "#EBF3FA", "secondaryBackground": "#FFFFFF", "secondaryHover": "#EBF3FA"
+  }
+}
+
+'@ | ConvertFrom-Json
 $script:embedded_meta = @'
 {
-  "version": "2.0"
+  "version": "2.3"
+}
+
+'@ | ConvertFrom-Json
+$script:embedded_apps = @'
+{
+  "Browsers": {
+    "brave": { "content": "Brave", "winget": "Brave.Brave", "description": "Privacy-first browser with built-in ad blocker" },
+    "firefox": { "content": "Firefox", "winget": "Mozilla.Firefox", "description": "Privacy-focused web browser" },
+    "tor": { "content": "Tor Browser", "winget": "TorProject.TorBrowser", "description": "Anonymous web browsing via Tor network" }
+  },
+  "Security & Privacy": {
+    "mullvad": { "content": "Mullvad VPN", "winget": "Mullvad.MullvadVPN", "description": "Privacy-focused VPN service" },
+    "protonvpn": { "content": "ProtonVPN", "winget": "Proton.ProtonVPN", "description": "Secure VPN with no-logs policy" },
+    "malwarebytes": { "content": "Malwarebytes", "winget": "Malwarebytes.Malwarebytes", "description": "On-demand malware scanner and remover" },
+    "veracrypt": { "content": "VeraCrypt", "winget": "IDRIX.VeraCrypt", "description": "Disk encryption software for files and partitions" }
+  },
+  "Development": {
+    "vscode": { "content": "VS Code", "winget": "Microsoft.VisualStudioCode", "description": "Lightweight source code editor" },
+    "github_desktop": { "content": "GitHub Desktop", "winget": "GitHub.GitHubDesktop", "description": "GUI for Git and GitHub" },
+    "docker": { "content": "Docker Desktop", "winget": "Docker.DockerDesktop", "description": "Container platform for dev and test" },
+    "dbeaver": { "content": "DBeaver", "winget": "DBeaver.DBeaver", "description": "Universal database manager" },
+    "bruno": { "content": "Bruno", "winget": "Bruno.Bruno", "description": "Offline-first API testing client" },
+    "git": { "content": "Git", "winget": "Git.Git", "description": "Distributed version control system" },
+    "nodejs": { "content": "Node.js LTS", "winget": "OpenJS.NodeJS.LTS", "description": "JavaScript runtime built on Chrome's V8 engine" },
+    "python": { "content": "Python 3.12", "winget": "Python.Python.3.12", "description": "High-level programming language" },
+    "windows_terminal": { "content": "Windows Terminal", "winget": "Microsoft.WindowsTerminal", "description": "Modern terminal application for Windows" },
+    "powershell": { "content": "PowerShell 7", "winget": "Microsoft.PowerShell", "description": "Cross-platform shell and scripting language" },
+    "ohmyposh": { "content": "Oh My Posh", "winget": "JanDeDobbeleer.OhMyPosh", "description": "Prompt theme engine for any shell" }
+  },
+  "Media & Creative": {
+    "gimp": { "content": "GIMP", "winget": "GIMP.GIMP", "description": "Free and open-source image editor" },
+    "krita": { "content": "Krita", "winget": "Krita.Krita", "description": "Professional digital painting tool" },
+    "inkscape": { "content": "Inkscape", "winget": "Inkscape.Inkscape", "description": "Vector graphics editor" },
+    "kdenlive": { "content": "Kdenlive", "winget": "KDE.Kdenlive", "description": "Free and open-source video editor" },
+    "obs": { "content": "OBS Studio", "winget": "OBSProject.OBSStudio", "description": "Video recording and live streaming software" },
+    "audacity": { "content": "Audacity", "winget": "Audacity.Audacity", "description": "Multi-track audio recorder and editor" },
+    "mpchc": { "content": "MPC-HC", "winget": "clsid2.mpc-hc", "description": "Lightweight media player" },
+    "vlc": { "content": "VLC", "winget": "VideoLAN.VLC", "description": "Free and open source multimedia player" },
+    "foobar2000": { "content": "foobar2000", "winget": "PeterPawlowski.foobar2000", "description": "Advanced audio player" },
+    "ytdlp": { "content": "yt-dlp", "winget": "yt-dlp.yt-dlp", "description": "Command-line video downloader" },
+    "sharex": { "content": "ShareX", "winget": "ShareX.ShareX", "description": "Screen capture and file sharing tool" }
+  },
+  "Utilities": {
+    "powertoys": { "content": "PowerToys", "winget": "Microsoft.PowerToys", "description": "System utilities: FancyZones, PowerRename, Run, etc." },
+    "everything": { "content": "Everything", "winget": "voidtools.Everything", "description": "Lightning-fast file search engine" },
+    "ditto": { "content": "Ditto", "winget": "Ditto.Ditto", "description": "Clipboard manager with search history" },
+    "hwinfo": { "content": "HWiNFO64", "winget": "REALiX.HWiNFO", "description": "Comprehensive hardware monitoring tool" },
+    "syncthing": { "content": "Syncthing", "winget": "Syncthing.Syncthing", "description": "P2P file sync between devices" },
+    "7zip_zs": { "content": "7-Zip ZS", "winget": "mcmilk.7zip-zstd", "description": "File archiver with Zstandard support" },
+    "revo": { "content": "Revo Uninstaller", "winget": "RevoUninstaller.RevoUninstaller", "description": "Advanced uninstaller tool" },
+    "bitwarden": { "content": "Bitwarden", "winget": "Bitwarden.Bitwarden", "description": "Open source password manager" },
+    "motrix": { "content": "Motrix", "winget": "Motrix.Motrix", "description": "Full-featured download manager" },
+    "mobaxterm": { "content": "MobaXterm", "winget": "Mobatek.MobaXterm", "description": "Enhanced terminal with X11 server" }
+  },
+  "Productivity": {
+    "obsidian": { "content": "Obsidian", "winget": "Obsidian.Obsidian", "description": "Local-first note-taking app with Markdown" },
+    "sumatra": { "content": "Sumatra PDF", "winget": "SumatraPDF.SumatraPDF", "description": "Lightweight PDF and ebook reader" },
+    "notion": { "content": "Notion", "winget": "Notion.Notion", "description": "All-in-one workspace for notes and tasks" }
+  }
 }
 
 '@ | ConvertFrom-Json
@@ -1102,118 +1235,6 @@ $script:embedded_tweaks = @'
 }
 
 '@ | ConvertFrom-Json
-$script:embedded_apps = @'
-{
-  "Browsers": {
-    "brave": { "content": "Brave", "winget": "Brave.Brave", "description": "Privacy-first browser with built-in ad blocker" },
-    "firefox": { "content": "Firefox", "winget": "Mozilla.Firefox", "description": "Privacy-focused web browser" },
-    "tor": { "content": "Tor Browser", "winget": "TorProject.TorBrowser", "description": "Anonymous web browsing via Tor network" }
-  },
-  "Security & Privacy": {
-    "mullvad": { "content": "Mullvad VPN", "winget": "Mullvad.MullvadVPN", "description": "Privacy-focused VPN service" },
-    "protonvpn": { "content": "ProtonVPN", "winget": "Proton.ProtonVPN", "description": "Secure VPN with no-logs policy" },
-    "malwarebytes": { "content": "Malwarebytes", "winget": "Malwarebytes.Malwarebytes", "description": "On-demand malware scanner and remover" },
-    "veracrypt": { "content": "VeraCrypt", "winget": "IDRIX.VeraCrypt", "description": "Disk encryption software for files and partitions" }
-  },
-  "Development": {
-    "vscode": { "content": "VS Code", "winget": "Microsoft.VisualStudioCode", "description": "Lightweight source code editor" },
-    "github_desktop": { "content": "GitHub Desktop", "winget": "GitHub.GitHubDesktop", "description": "GUI for Git and GitHub" },
-    "docker": { "content": "Docker Desktop", "winget": "Docker.DockerDesktop", "description": "Container platform for dev and test" },
-    "dbeaver": { "content": "DBeaver", "winget": "DBeaver.DBeaver", "description": "Universal database manager" },
-    "bruno": { "content": "Bruno", "winget": "Bruno.Bruno", "description": "Offline-first API testing client" },
-    "git": { "content": "Git", "winget": "Git.Git", "description": "Distributed version control system" },
-    "nodejs": { "content": "Node.js LTS", "winget": "OpenJS.NodeJS.LTS", "description": "JavaScript runtime built on Chrome's V8 engine" },
-    "python": { "content": "Python 3.12", "winget": "Python.Python.3.12", "description": "High-level programming language" },
-    "windows_terminal": { "content": "Windows Terminal", "winget": "Microsoft.WindowsTerminal", "description": "Modern terminal application for Windows" },
-    "powershell": { "content": "PowerShell 7", "winget": "Microsoft.PowerShell", "description": "Cross-platform shell and scripting language" },
-    "ohmyposh": { "content": "Oh My Posh", "winget": "JanDeDobbeleer.OhMyPosh", "description": "Prompt theme engine for any shell" }
-  },
-  "Media & Creative": {
-    "gimp": { "content": "GIMP", "winget": "GIMP.GIMP", "description": "Free and open-source image editor" },
-    "krita": { "content": "Krita", "winget": "Krita.Krita", "description": "Professional digital painting tool" },
-    "inkscape": { "content": "Inkscape", "winget": "Inkscape.Inkscape", "description": "Vector graphics editor" },
-    "kdenlive": { "content": "Kdenlive", "winget": "KDE.Kdenlive", "description": "Free and open-source video editor" },
-    "obs": { "content": "OBS Studio", "winget": "OBSProject.OBSStudio", "description": "Video recording and live streaming software" },
-    "audacity": { "content": "Audacity", "winget": "Audacity.Audacity", "description": "Multi-track audio recorder and editor" },
-    "mpchc": { "content": "MPC-HC", "winget": "clsid2.mpc-hc", "description": "Lightweight media player" },
-    "vlc": { "content": "VLC", "winget": "VideoLAN.VLC", "description": "Free and open source multimedia player" },
-    "foobar2000": { "content": "foobar2000", "winget": "PeterPawlowski.foobar2000", "description": "Advanced audio player" },
-    "ytdlp": { "content": "yt-dlp", "winget": "yt-dlp.yt-dlp", "description": "Command-line video downloader" },
-    "sharex": { "content": "ShareX", "winget": "ShareX.ShareX", "description": "Screen capture and file sharing tool" }
-  },
-  "Utilities": {
-    "powertoys": { "content": "PowerToys", "winget": "Microsoft.PowerToys", "description": "System utilities: FancyZones, PowerRename, Run, etc." },
-    "everything": { "content": "Everything", "winget": "voidtools.Everything", "description": "Lightning-fast file search engine" },
-    "ditto": { "content": "Ditto", "winget": "Ditto.Ditto", "description": "Clipboard manager with search history" },
-    "hwinfo": { "content": "HWiNFO64", "winget": "REALiX.HWiNFO", "description": "Comprehensive hardware monitoring tool" },
-    "syncthing": { "content": "Syncthing", "winget": "Syncthing.Syncthing", "description": "P2P file sync between devices" },
-    "7zip_zs": { "content": "7-Zip ZS", "winget": "mcmilk.7zip-zstd", "description": "File archiver with Zstandard support" },
-    "revo": { "content": "Revo Uninstaller", "winget": "RevoUninstaller.RevoUninstaller", "description": "Advanced uninstaller tool" },
-    "bitwarden": { "content": "Bitwarden", "winget": "Bitwarden.Bitwarden", "description": "Open source password manager" },
-    "motrix": { "content": "Motrix", "winget": "Motrix.Motrix", "description": "Full-featured download manager" },
-    "mobaxterm": { "content": "MobaXterm", "winget": "Mobatek.MobaXterm", "description": "Enhanced terminal with X11 server" }
-  },
-  "Productivity": {
-    "obsidian": { "content": "Obsidian", "winget": "Obsidian.Obsidian", "description": "Local-first note-taking app with Markdown" },
-    "sumatra": { "content": "Sumatra PDF", "winget": "SumatraPDF.SumatraPDF", "description": "Lightweight PDF and ebook reader" },
-    "notion": { "content": "Notion", "winget": "Notion.Notion", "description": "All-in-one workspace for notes and tasks" }
-  }
-}
-
-'@ | ConvertFrom-Json
-$script:embedded_themes = @'
-{
-  "dark": {
-    "windowBackground": "#1C1C1E", "headerBackground": "#242426", "headerBorder": "#3A3A3C",
-    "footerBackground": "#242426", "footerBorder": "#3A3A3C",
-    "cardBackground": "#2C2C2E", "cardForeground": "#D4CEBC", "cardBorder": "#48484A",
-    "accentColor": "#4D9DE0", "accentHover": "#3A87C8",
-    "pageTitleColor": "#E8E0CC", "categoryHeaderColor": "#4D9DE0", "textMuted": "#8E8E93",
-    "textBoxBackground": "#2C2C2E", "textBoxForeground": "#D4CEBC", "textBoxBorder": "#48484A",
-    "dangerColor": "#C0392B", "dangerHover": "#962D22",
-    "selectedBorder": "#4D9DE0", "selectedBackground": "#162840",
-    "hoverBackground": "#262628", "secondaryBackground": "#242426", "secondaryHover": "#262628"
-  },
-  "light": {
-    "windowBackground": "#F4F8FC", "headerBackground": "#FFFFFF", "headerBorder": "#C4D9ED",
-    "footerBackground": "#FFFFFF", "footerBorder": "#C4D9ED",
-    "cardBackground": "#FFFFFF", "cardForeground": "#1A2733", "cardBorder": "#BDD3E8",
-    "accentColor": "#4D9DE0", "accentHover": "#3A87C8",
-    "pageTitleColor": "#1A2733", "categoryHeaderColor": "#4D9DE0", "textMuted": "#7A96AE",
-    "textBoxBackground": "#FFFFFF", "textBoxForeground": "#1A2733", "textBoxBorder": "#BDD3E8",
-    "dangerColor": "#C0392B", "dangerHover": "#962D22",
-    "selectedBorder": "#4D9DE0", "selectedBackground": "#E0EEFA",
-    "hoverBackground": "#EBF3FA", "secondaryBackground": "#FFFFFF", "secondaryHover": "#EBF3FA"
-  }
-}
-
-'@ | ConvertFrom-Json
-$script:embedded_features = @'
-{
-  "Features": {
-    "dotnet": { "content": ".NET Framework (2, 3, 4)", "description": "Enable .NET Framework 3.5 and 4.8", "script": "Enable-WindowsOptionalFeature -Online -FeatureName NetFx3 -All -NoRestart; Enable-WindowsOptionalFeature -Online -FeatureName NetFx4-AdvSrvs -All -NoRestart" },
-    "hyperv": { "content": "Hyper-V", "description": "Enable Hyper-V virtualization", "script": "Enable-WindowsOptionalFeature -Online -FeatureName Microsoft-Hyper-V-All -All -NoRestart" },
-    "f8_boot_enable": { "content": "Legacy F8 Boot Recovery - Enable", "description": "Enable legacy F8 boot menu", "script": "bcdedit /set {default} bootmenupolicy legacy" },
-    "f8_boot_disable": { "content": "Legacy F8 Boot Recovery - Disable", "description": "Disable legacy F8 boot menu", "script": "bcdedit /set {default} bootmenupolicy standard" },
-    "legacy_media": { "content": "Legacy Media Components (WMP, DirectPlay)", "description": "Enable Windows Media Player and DirectPlay", "script": "Enable-WindowsOptionalFeature -Online -FeatureName 'WindowsMediaPlayer' -All -NoRestart; Enable-WindowsOptionalFeature -Online -FeatureName 'DirectPlay' -All -NoRestart" },
-    "nfs": { "content": "Network File System (NFS)", "description": "Enable Services for NFS", "script": "Enable-WindowsOptionalFeature -Online -FeatureName 'ServicesForNFS-ClientOnly' -All -NoRestart; Enable-WindowsOptionalFeature -Online -FeatureName 'ClientForNFS-Infrastructure' -All -NoRestart" },
-    "registry_backup": { "content": "Registry Backup (Daily Task 12:30am)", "description": "Schedule daily registry backup task", "script": "schtasks /create /tn 'Registry Backup' /tr 'regedit /e C:\\Windows\\System32\\config\\RegBack\\registry_backup.reg' /sc daily /st 00:30 /f" },
-    "sandbox": { "content": "Windows Sandbox", "description": "Enable Windows Sandbox", "script": "Enable-WindowsOptionalFeature -Online -FeatureName Containers-DisposableClientVM -All -NoRestart" },
-    "wsl": { "content": "Windows Subsystem for Linux (WSL)", "description": "Enable WSL2 and Virtual Machine Platform", "script": "Enable-WindowsOptionalFeature -Online -FeatureName Microsoft-Windows-Subsystem-Linux -All -NoRestart; Enable-WindowsOptionalFeature -Online -FeatureName VirtualMachinePlatform -All -NoRestart" }
-  },
-  "Fixes": {
-    "autologon": { "content": "AutoLogon - Run", "description": "Open the Autologon configuration tool", "script": "Start-Process 'https://live.sysinternals.com/Autologon.exe'" },
-    "reset_network": { "content": "Network - Reset", "description": "Reset TCP/IP, Winsock, flush DNS", "script": "netsh winsock reset; netsh int ip reset; ipconfig /release; ipconfig /renew; ipconfig /flushdns" },
-    "ntp_server": { "content": "NTP Server - Enable", "description": "Sync time with pool.ntp.org", "script": "w32tm /config /manualpeerlist:'pool.ntp.org' /syncfromflags:manual /reliable:yes /update; w32tm /resync" },
-    "sfc_scan": { "content": "System Corruption Scan - Run", "description": "Run SFC scan to check system files", "script": "sfc /scannow" },
-    "system_repair": { "content": "System Repair - Full (Chkdsk + SFC + DISM)", "description": "Run chkdsk, SFC, and DISM repair", "script": "chkdsk /scan; sfc /scannow; dism /online /cleanup-image /restorehealth" },
-    "update_repair": { "content": "Windows Update - Full Repair", "description": "Complete Windows Update component repair", "script": "net stop wuauserv /y; net stop cryptSvc /y; net stop bits /y; net stop msiserver /y; Ren C:\\Windows\\SoftwareDistribution SoftwareDistribution.old; Ren C:\\Windows\\System32\\catroot2 catroot2.old; netsh winsock reset; net start wuauserv; net start cryptSvc; net start bits; net start msiserver" },
-    "reset_wu": { "content": "Windows Update - Reset", "description": "Reset Windows Update components", "script": "net stop wuauserv; net stop cryptSvc; net stop bits; net stop msiserver; Ren C:\\Windows\\SoftwareDistribution SoftwareDistribution.old; Ren C:\\Windows\\System32\\catroot2 catroot2.old; net start wuauserv; net start cryptSvc; net start bits; net start msiserver" },
-    "reinstall_winget": { "content": "WinGet - Reinstall", "description": "Reinstall WinGet package manager", "script": "Get-AppxPackage Microsoft.DesktopAppInstaller | Remove-AppxPackage; start 'ms-windows-store://pdp/?productid=9NBLGGH4NNS1'" }
-  }
-}
-
-'@ | ConvertFrom-Json
 $script:embedded_dns = @'
 {
   "Default_DHCP": { "description": "Default DHCP (reset to auto)" },
@@ -1228,6 +1249,7 @@ $script:embedded_dns = @'
 }
 
 '@ | ConvertFrom-Json
+$script:metaConfig = if ($script:embedded_meta) { $script:embedded_meta } else { @{} }
 $script:appsConfig = if ($script:embedded_apps) { $script:embedded_apps } else { @{} }
 $script:tweaksConfig = if ($script:embedded_tweaks) { $script:embedded_tweaks } else { @{} }
 $script:dnsConfig = if ($script:embedded_dns) { $script:embedded_dns } else { @{} }
@@ -1904,7 +1926,7 @@ if ($NoUI) {
 }
 
 try {
-    $xamlContent = $script:embeddedXaml -replace 'x:Name', 'Name'
+    $xamlContent = $script:embeddedXaml -replace 'x:Name="([^"]+)"', 'Name="$1"'
     [xml]$xaml = $xamlContent
     $reader = New-Object System.Xml.XmlNodeReader $xaml
     $window = [Windows.Markup.XamlReader]::Load($reader)

@@ -25,7 +25,7 @@ if (-not $isAdmin) {
     $PSBoundParameters.GetEnumerator() | ForEach-Object {
         $argList += if ($_.Value -is [switch] -and $_.Value) { "-$($_.Key)" }
         elseif ($_.Value -is [array]) { "-$($_.Key) $($_.Value -join ',')" }
-        elseif ($_.Value) { "-$($_.Key) '$($_.Value)'" }
+        elseif ($null -ne $_.Value) { "-$($_.Key) '$($_.Value)'" }
     }
     $scriptCmd = if ($PSCommandPath) {
         "& { & '$PSCommandPath' $($argList -join ' ') }"

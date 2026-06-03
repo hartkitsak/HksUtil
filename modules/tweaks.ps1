@@ -8,7 +8,7 @@ function Save-OriginalValues {
     if ($tweak.PSObject.Properties.Name -contains "registry") {
         foreach ($reg in $tweak.registry) {
             $currentValue = $null
-            if (Test-Path $reg.path) {
+            if ($reg.path -and (Test-Path $reg.path)) {
                 try { $currentValue = (Get-ItemProperty $reg.path -Name $reg.name -ErrorAction SilentlyContinue).$($reg.name) } catch { Write-Log "Registry read failed for undo: $_" "Warn" }
             }
             $undoEntry.Registry += @{ Path = $reg.path; Name = $reg.name; OriginalValue = $currentValue; Type = $reg.type }
@@ -62,7 +62,7 @@ function Invoke-UndoTweaks {
     if ($rbRestore.IsChecked) {
         try {
             $rp = Get-ComputerRestorePoint | Sort-Object CreationTime -Descending | Select-Object -First 1
-            if ($rp) { Write-Log "Starting system restore to $($rp.Description)..." "Header"; Restore-Computer -RestorePoint $rp.SequenceNumber -Confirm:$false }
+            if ($rp) { Write-Log "Starting system restore to $($rp.Description)..." "Header"; Show-Info "System Restore" "Your computer will restart to complete the system restore."; Restore-Computer -RestorePoint $rp.SequenceNumber -Confirm:$false }
         } catch { Write-Log "System restore failed: $_" "Error" }
         return
     }
@@ -90,7 +90,7 @@ function Invoke-UndoTweaks {
             } catch { Write-Log "Registry undo failed: $_" "Error" }
         }
         foreach ($scriptBlock in $entry.Scripts) {
-            try { Invoke-Expression $scriptBlock; Write-Log "Undo script executed." "Success" } catch { Write-Log "Undo script failed: $_" "Error" }
+            try { & ([scriptblock]::Create($scriptBlock)); Write-Log "Undo script executed." "Success" } catch { Write-Log "Undo script failed: $_" "Error" }
         }
     }
     $script:tweakUndoLog = @{}
@@ -139,7 +139,7 @@ if ($controls["BtnRunTweaks"]) {
                 }
             }
             if ($tweak.PSObject.Properties.Name -contains "script") {
-                try { Invoke-Expression $tweak.script; Write-Log "Script executed." "Success" } catch { Write-Log "Script failed: $_" "Error" }
+                try { & ([scriptblock]::Create($tweak.script)); Write-Log "Script executed." "Success" } catch { Write-Log "Script failed: $_" "Error" }
             }
             if ($tweak.PSObject.Properties.Name -contains "info") { Write-Log $tweak.info "Warn" }
         }

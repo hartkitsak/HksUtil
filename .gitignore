@@ -12,3 +12,4 @@ app.ps1.bak
 .vscode/
 .idea/
 .vs/
+hksutil.ps1

@@ -70,11 +70,15 @@ function Update-InstalledCache {
     $script:installedAppIds = @{}
     if (-not (Get-Command winget -ErrorAction SilentlyContinue)) { Write-Log "winget not available." "Warn"; return }
     try {
-        $output = winget list --accept-source-agreements 2>&1 | Out-String
+        $lines = winget list --accept-source-agreements 2>&1 | Where-Object { $_ -match '^[\w\-\.]+\s+' }
+        $installedIds = @{}
+        foreach ($line in $lines) {
+            if ($line -match '^([\w\-\.]+)\s+') { $installedIds[$matches[1].ToLower()] = $true }
+        }
         foreach ($cat in $appsConfig.PSObject.Properties.Name) {
             foreach ($appKey in $appsConfig.$cat.PSObject.Properties.Name) {
                 $id = $appsConfig.$cat.$appKey.winget
-                if ($id -and $output -match "\b$([regex]::Escape($id))\b") {
+                if ($id -and $installedIds.ContainsKey($id.ToLower())) {
                     $script:installedAppIds[$id] = $true
                 }
             }

@@ -40,7 +40,7 @@ if (($controls["AppPanel1"] -and $controls["AppPanel2"] -and $controls["AppPanel
                 if (-not (Ensure-PackageManager $pkg)) { Show-Info "Error" "Failed to ensure $pkg."; return }
                 if (-not (Show-Confirm "Install" "Install $id via $pkg?")) { return }
                 Show-Progress -Text "Installing: $id" -Value 0.5
-                try { if ($pkg -eq "winget") { winget install --id=$id --silent --accept-package-agreements 2>&1 | Out-Null } else { choco install $id -y 2>&1 | Out-Null }; Write-Log "Installed: $id" "Success" } catch { Write-Log "Failed: $id" "Error" }
+                try { if ($pkg -eq "winget") { winget install --id=$id --silent --accept-package-agreements --accept-source-agreements 2>&1 | Out-Null } else { choco install $id -y 2>&1 | Out-Null }; Write-Log "Installed: $id" "Success" } catch { Write-Log "Failed: $id" "Error" }
                 Hide-Progress; Update-InstalledCache; Show-Info "Done" "Install of $id completed."
             })
             $miUninstall = New-Object System.Windows.Controls.MenuItem; $miUninstall.Header = "Uninstall"; $miUninstall.Tag = $app.winget
@@ -49,7 +49,7 @@ if (($controls["AppPanel1"] -and $controls["AppPanel2"] -and $controls["AppPanel
                 if (-not (Ensure-PackageManager $pkg)) { Show-Info "Error" "Failed to ensure $pkg."; return }
                 if (-not (Show-Confirm "Uninstall" "Uninstall $id via $pkg?")) { return }
                 Show-Progress -Text "Uninstalling: $id" -Value 0.5
-                try { if ($pkg -eq "winget") { winget uninstall --id=$id --silent --purge 2>&1 | Out-Null } else { choco uninstall $id -y 2>&1 | Out-Null }; Write-Log "Uninstalled: $id" "Success" } catch { Write-Log "Failed: $id" "Error" }
+                try { if ($pkg -eq "winget") { winget uninstall --id=$id --silent --purge --accept-source-agreements 2>&1 | Out-Null } else { choco uninstall $id -y 2>&1 | Out-Null }; Write-Log "Uninstalled: $id" "Success" } catch { Write-Log "Failed: $id" "Error" }
                 Hide-Progress; Update-InstalledCache; Show-Info "Done" "Uninstall of $id completed."
             })
             $miInfo = New-Object System.Windows.Controls.MenuItem; $miInfo.Header = "Info"; $miInfo.Tag = $app
@@ -84,11 +84,13 @@ if ($controls["PrefsPanel1"] -and $controls["PrefsPanel2"] -and $controls["Prefs
         $cb.IsChecked = if ($hasRegistryOn) { $currentState -eq $pref.registry_on[0].value } else { $false }
         $cb.Add_Checked({
             $pk = $this.Tag; $p = $prefsConfig.$pk
+            if (-not $p) { return }
             if ($p.PSObject.Properties.Name -contains "registry_on") { foreach ($r in $p.registry_on) { try { if (!(Test-Path $r.path)) { New-Item $r.path -Force | Out-Null }; $t = if ($r.type) { $r.type } else { "String" }; Set-ItemProperty $r.path -Name $r.name -Value $r.value -Type $t -Force } catch { Write-Log "Registry write failed: $($r.path) $($r.name)" "Warn" } } }
             Write-Log "Pref ON: $($p.content)" "Success"
         })
         $cb.Add_Unchecked({
             $pk = $this.Tag; $p = $prefsConfig.$pk
+            if (-not $p) { return }
             if ($p.PSObject.Properties.Name -contains "registry_off") { foreach ($r in $p.registry_off) { try { if (!(Test-Path $r.path)) { New-Item $r.path -Force | Out-Null }; $t = if ($r.type) { $r.type } else { "String" }; Set-ItemProperty $r.path -Name $r.name -Value $r.value -Type $t -Force } catch { Write-Log "Registry write failed: $($r.path) $($r.name)" "Warn" } } }
             Write-Log "Pref OFF: $($p.content)" "Warn"
         })

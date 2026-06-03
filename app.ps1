@@ -84,7 +84,7 @@ if ($NoUI) {
 try {
     $xamlPath = Join-Path $PSScriptRoot "xaml\ui.xaml"
     $xamlContent = Get-Content $xamlPath -Raw -Encoding UTF8
-    $xamlContent = $xamlContent -replace 'x:Name', 'Name'
+    $xamlContent = $xamlContent -replace 'x:Name="([^"]+)"', 'Name="$1"'
     [xml]$xaml = $xamlContent
     $reader = New-Object System.Xml.XmlNodeReader $xaml
     $window = [Windows.Markup.XamlReader]::Load($reader)

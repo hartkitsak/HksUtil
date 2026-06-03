@@ -10,7 +10,7 @@ if ($controls["BtnRunFeatures"] -and $featuresConfig -and $featuresConfig.PSObje
             $feat = $featuresConfig.Features.$featKey
             if (-not $feat) { continue }
             Write-Log "Running: $($feat.content)" "Info"
-            try { Invoke-Expression $feat.script; Write-Log "Feature completed: $($feat.content)" "Success" } catch { Write-Log "Feature failed: $($feat.content): $_" "Error" }
+            try { & ([scriptblock]::Create($feat.script)); Write-Log "Feature completed: $($feat.content)" "Success" } catch { Write-Log "Feature failed: $($feat.content): $_" "Error" }
         }
         Set-Status "Ready"
         Show-Info "Features Complete" "$($selected.Count) feature(s) applied."

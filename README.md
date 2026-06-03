@@ -102,7 +102,7 @@ cd HksUtil
 
 ### Headless Mode
 ```powershell
-.\app.ps1 -Noui -Config .\config\my-config.json -Apply
+.\app.ps1 -Noui -Config .\config\apps.json -Apply
 ```
 
 ### Export Config
@@ -133,11 +133,17 @@ HksUtil/
 │   └── Compile.ps1             # Build script — merges modules + config + XAML into hksutil.ps1
 ├── docs/
 │   └── HKSUITL_PROJECT_DOCS.md # AI-oriented project documentation
-├── config/
-│   └── config.json             # Unified configuration (apps, tweaks, themes, DNS)
+├── config/                     # 7 JSON config files
+│   ├── meta.json               # Version metadata
+│   ├── apps.json               # App catalog (42 apps, 6 categories)
+│   ├── tweaks.json             # Tweak definitions
+│   ├── features.json           # Features + Fixes scripts
+│   ├── preferences.json        # 20 registry-based toggles
+│   ├── themes.json             # Dark + Light color schemes
+│   └── dns.json                # DNS provider list
 ├── xaml/
 │   └── ui.xaml                 # WPF layout (~660 lines)
-├── modules/                    # 11 PowerShell modules
+├── modules/                    # 13 PowerShell modules
 │   ├── logger.ps1              # Terminal logging, message boxes
 │   ├── core.ps1                # Async dispatch, progress overlay, cache, headless mode
 │   ├── theme.ps1               # JSON → BrushConverter runtime theming
@@ -177,21 +183,9 @@ HksUtil/
 
 ## Customization
 
-Edit `config/config.json` to add applications, tweaks, preferences, DNS providers, or themes. The JSON schema uses the following structure:
+Edit JSON files in `config/` to customize applications, tweaks, preferences, DNS providers, or themes. The configuration is split across 7 files:
 
-```json
-{
-  "meta": { "version": "2.0", "author": "..." },
-  "themes": { "dark": { "Background": "#FF1E1E1E", ... } },
-  "apps": { "Category": { "app_key": { "content": "...", "winget": "...", "description": "..." } } },
-  "tweaks": { ... },
-  "dns": { ... },
-  "preferences": { ... },
-  "features": { ... }
-}
-```
-
-All sections are self-documenting — refer to the field names in `config.json` for available keys.
+Refer to each file's field names — all sections are self-documenting.
 
 ## Contributing
 

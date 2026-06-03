@@ -23,7 +23,8 @@ HksUtil is a GUI Windows optimization utility built with **PowerShell 5.1** (cod
 ```powershell
 powershell -ExecutionPolicy Bypass -File "D:\dev-setup\HksUtil\app.ps1"
 # Or remote:
-irm "https://raw.githubusercontent.com/hartkitsak/HksUtil/main/launcher.ps1" | iex
+git clone https://github.com/hartkitsak/HksUtil.git
+.\HksUtil\app.ps1
 ```
 
 The script auto-elevates to Admin if not already running as Admin.
@@ -43,8 +44,14 @@ HksUtil/
 ├── README.md                  # GitHub documentation
 ├── LICENSE                    # MIT license (file)
 ├── .gitignore
-├── config/
-│   └── config.json            # Unified config (7 sections: meta, themes, apps, tweaks, dns, preferences, features)
+├── config/                    # 7 JSON config files
+│   ├── meta.json              # Version metadata
+│   ├── apps.json              # App catalog
+│   ├── tweaks.json            # Tweak definitions
+│   ├── features.json          # Features + Fixes scripts
+│   ├── preferences.json       # Registry-based toggles
+│   ├── themes.json            # Color schemes
+│   └── dns.json               # DNS providers
 ├── xaml/
 │   └── ui.xaml                # WPF UI layout (~640 lines)
 ├── modules/                   # 11 PowerShell modules
@@ -68,7 +75,7 @@ HksUtil/
 ├── .github/
 │   ├── ISSUE_TEMPLATE/        # bug_report.yaml, feature_request.yaml, config.yml
 │   └── workflows/             # compile-check.yaml, unittests.yaml
-└── .gitignore                 # Ignores hksutil.ps1 (compiled output)
+└── .gitignore
 ```
 
 ---
@@ -81,7 +88,7 @@ HksUtil/
 2. Load WPF assemblies
 3.  Set `$script:appRoot = $PSScriptRoot`
 4.  Parse `-Noui`, `-Config <path>`, `-Apply`, `-Export` parameters
-5.  Load `config/config.json` → split into `$script:cfg` (raw), `$script:appsConfig`, `$script:tweaksConfig`, etc.
+5.  Load all 7 JSON files from `config/` → `$script:appsConfig`, `$script:tweaksConfig`, etc.
 6.  **GUI mode**: Load `xaml/ui.xaml` → XamlReader → build `$controls` hashtable
 7.  Dot-source all 13 modules from `modules/` (order: logger → core → theme → navigation → tweaks → search → toolbar → dns → terminal → utility → build → install → features)
 8.  Apply theme (default "dark")
@@ -135,8 +142,8 @@ app.ps1
 ### 3.5 NoUI Headless Mode
 
 ```powershell
-.\app.ps1 -Noui -Config .\config\my-config.json -Apply
-.\app.ps1 -Export .\config\exported.json
+.\app.ps1 -Noui -Config .\config\apps.json -Apply
+.\app.ps1 -Export .\config\exported-config.json
 ```
 
 - `-Noui` skips XAML loading, sets `$script:NoUI = $true`
@@ -155,7 +162,7 @@ app.ps1
 }
 ```
 
-`Apply-Theme` reads the theme object → creates `SolidColorBrush` via `BrushConverter` → sets `$window.Resources` dictionary entries. Fallback to console when `Application.Current` is null.
+`Apply-Theme` reads from `$script:themesConfig` → creates `SolidColorBrush` via `BrushConverter` → sets `$window.Resources` dictionary entries. Fallback to console when `Application.Current` is null.
 
 **Resource keys (22 total):**
 `Background`, `Foreground`, `HeaderBackground`, `HeaderBorder`, `FooterBackground`, `FooterBorder`,
@@ -175,7 +182,7 @@ app.ps1
 
 **Controls:** `SearchBox`, `SearchHint`, `BtnClearSearch`, `ChkShowInstalled`, `PkgWinGet`, `PkgChoco`, `BtnInstall`, `BtnUninstall`, `BtnSelectAll`, `BtnClearSelection`, `BtnCollapseAll`, `BtnExpandAll`, `LblSelectedCount`, `AppPanel1/2/3`
 
-**Data source:** `config.json` → `apps` section (6 categories, 42 apps)
+**Data source:** `config/apps.json` (6 categories, 42 apps)
 
 **Features:**
 - App checkboxes with `TweakCheckBox` card style + context menu (Install/Uninstall/Info)
@@ -188,7 +195,7 @@ app.ps1
 
 **Controls:** `TweaksPanel1/2/3`, `BtnRunTweaks`, `BtnUndoTweaks`
 
-**Data source:** `config.json` → `tweaks` section (3 groups)
+**Data source:** `config/tweaks.json` (3 groups)
 
 **Apply flow:**
 1. `New-SystemRestorePoint` → `Checkpoint-Computer`
@@ -204,7 +211,7 @@ app.ps1
 
 **Controls:** `FeaturesPanel1/2/3`, `FixesWrapPanel`, `BtnRunFeatures`
 
-**Data source:** `config.json` → `features` section (2 sub-sections: Features + Fixes)
+**Data source:** `config/features.json` (2 sub-sections: Features + Fixes)
 
 - **Features** — CheckBox cards, batch run via `BtnRunFeatures` → `Invoke-RunFeatures`
 - **Fixes** — Button cards (FeatureCard style), each with confirm dialog, runs inline scriptblock
@@ -213,7 +220,7 @@ app.ps1
 
 **Controls:** `PrefsPanel1/2/3`
 
-**Data source:** `config.json` → `preferences` section (20 items)
+**Data source:** `config/preferences.json` (20 items)
 
 **ToggleSwitch style:** Custom CheckBox template (toggle appearance)
 **Apply on toggle:** Checked → `registry_on[]`, Unchecked → `registry_off[]`
@@ -252,21 +259,21 @@ No "Apply" button — applies immediately.
 
 **DNS System:**
 - RadioButton cards with `DnsCardStyle`, `GroupName="DnsProvider"`
-- Reads from `config.json` → `dns` section (8 providers)
+- Reads from `config/dns.json` (8 providers)
 - Apply: `Set-DnsClientServerAddress` (primary physical adapter), fallback: `netsh interface ip set dns`
 - Confirm dialog before applying
 
 **Terminal Dotfiles:**
-- `Invoke-TerminalAction`: `irm https://raw.githubusercontent.com/hartkitsak/Terminal-Dotfiles/master/install.ps1 | iex`
-- Launches via `powershell -EncodedCommand` in separate window
+- `BtnTerminalDotfiles`: Downloads nova install script via `Invoke-WebRequest`, runs locally, then deletes
+- `BtnUninstallTerminal`: Same pattern for nova uninstall
 
 **Shortcut:** Creates desktop shortcut via `WScript.Shell` COM object
 
 ---
 
-## 5. CONFIG.JSON REFERENCE
+## 5. CONFIG REFERENCE
 
-Single unified file at `config/config.json` with 7 sections:
+7 separate JSON files in `config/`:
 
 ### meta
 ```json
@@ -356,7 +363,7 @@ Each: `{ description, ipv4: [2], ipv6: [2] }`
 - **PowerShell**: Dynamic UI via `New-Object` + `SetResourceReference()` for theme-aware colors
 - **Event wiring**: `$controls["Name"].Add_Event({ scriptblock })` or `$btn.Add_Click({ $this.Tag ... })`
 - **Control retrieval**: XAML parse → `$xaml.SelectNodes("//*[@Name]")` → `$controls[$key] = $window.FindName($key)`
-- **Config load**: `Get-Content -Raw -Encoding UTF8 | ConvertFrom-Json` on `config/config.json`
+- **Config load**: `Get-Content -Raw -Encoding UTF8 | ConvertFrom-Json` on each file in `config/`
 - **All user-facing messages**: `Write-Log` (console) and `Show-Confirm`/`Show-Info` (GUI)
 - **Progress**: `Show-Progress`/`Hide-Progress` wrappers (GUI overlay or console fallback)
 - **Module loading**: Dot-sourced in strict order (app.ps1 lines 99-111)
@@ -444,7 +451,7 @@ Each: `{ description, ipv4: [2], ipv6: [2] }`
 **Flow:**
 1. Read `scripts/start.ps1` → replace `#{replaceme}` with version date (`yy.MM.dd`)
 2. Read all 13 modules in dependency order (logger → core → theme → navigation → tweaks → search → toolbar → dns → terminal → utility → build → install → features)
-3. Read `config/config.json` → embed as here-string → parse at runtime
+3.  Read all JSON files from `config/` → embed as here-strings → parse at runtime
 4. Read `xaml/ui.xaml` → embed as here-string → parse at runtime
 5. Append compiled main body (NoUI/Export logic, XAML loading, UI setup, event handlers)
 6. Write to `hksutil.ps1`
@@ -483,3 +490,4 @@ Two workflows in `.github/workflows/`:
 | 2.0 | 2026 | 14-file modular split, unified config.json, 32 Pester tests, NoUI mode, JSON-based theming, System Restore, 47 code audit fixes, 8 bug fixes |
 | 2.1 | 2026 | LICENSE file, .github/ISSUE_TEMPLATE, .github/workflows (CI/CD), lint/PSScriptAnalyser.ps1, Compile.ps1 build system, 16 Legacy panels |
 | 2.2 | 2026 | All 8 HIGH + 14 MEDIUM + 12 LOW bugs fixed. empty catch → Write-Log, COM release, pwsh fallback, Start-Process multi-word split, dead code removal, navigation null guards, toolbar settings guards, OpenFileDialog dispose, Relaunch arg builder fix, Features section guard |
+| 2.3 | 2026 | Context menu `--accept-source-agreements`, preference null guard, DNS null check, tweak `$reg.path` null guard, `Invoke-Expression` → `[scriptblock]::Create()`, `iex (irm)` → `Invoke-WebRequest` + dot-source, chocolatey install via download + dot-source, hardcoded paths fixed, `chkdsk /scan` removed, `net stop /y` → `Stop-Service`, `x:Name` regex fix, `Join-Path` 3-arg compat fix, `BrushConverter` dispose, winget list parsed by lines, recursive clean depth-limited, parameter splatting aligned, config docs updated, hksutil.ps1 gitignored |
