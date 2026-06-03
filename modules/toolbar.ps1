@@ -43,7 +43,6 @@ if ($controls["BtnGearExport"]) {
             Write-Log "Exported to $($sfd.FileName)" "Success"
             Show-Info "Export Complete" "Config exported to:`n$($sfd.FileName)"
         } catch { Write-Log "Export failed: $_" "Error" }
-        finally { if ($sfd) { $sfd.Dispose() } }
         if ($controls["BtnToolbarSettings"]) { $controls["BtnToolbarSettings"].IsChecked = $false }
     })
 }
@@ -106,7 +105,6 @@ if ($controls["BtnGearImport"]) {
             Write-Log "Imported from $($ofd.FileName)" "Success"
             Show-Info "Import Complete" "Configuration imported."
         } catch { Write-Log "Import failed: $_" "Error" }
-        finally { $ofd.Dispose() }
         if ($controls["BtnToolbarSettings"]) { $controls["BtnToolbarSettings"].IsChecked = $false }
     })
 }
