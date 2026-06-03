@@ -73,20 +73,19 @@ One-click access to 16 classic Windows tools: Control Panel, Device Manager, Dis
 
 ## Installation
 
+### One-liner (recommended)
 ```powershell
-# Clone and run (Admin PowerShell)
+irm https://raw.githubusercontent.com/hartkitsak/HksUtil/main/install.ps1 | iex
+```
+
+### Manual
+```powershell
 git clone https://github.com/hartkitsak/HksUtil.git
 cd HksUtil
 .\app.ps1
 ```
 
 > ⚠️ **Admin required.** The script auto-elevates if not running as Administrator.
-
-You can also run the compiled single-file version directly:
-
-```powershell
-.\hksutil.ps1
-```
 
 ## Usage
 
@@ -107,9 +106,9 @@ You can also run the compiled single-file version directly:
 .\app.ps1 -Export .\config\exported.json
 ```
 
-### Compile Single-File
+### Compile Standalone (for deployment)
 ```powershell
-.\scripts\Compile.ps1       # produces hksutil.ps1
+.\scripts\Compile.ps1       # produces hksutil.ps1 (not tracked in git)
 .\scripts\Compile.ps1 -Run  # compile and launch
 ```
 
@@ -154,11 +153,14 @@ All configuration is driven by 7 JSON files in `config/`:
 
 ```
 HksUtil/
-├── app.ps1                  # Entry point
-├── hksutil.ps1              # Compiled single-file version (gitignored)
+├── app.ps1                  # Development entry point
+├── install.ps1              # irm|iex bootstrapper (clones repo + runs app.ps1)
 ├── scripts/
 │   ├── start.ps1            # Script header template
-│   └── Compile.ps1          # Build script
+│   └── Compile.ps1          # Build script (produces standalone hksutil.ps1)
+├── functions/
+│   ├── public/              # Reusable public functions
+│   └── private/             # Internal helpers
 ├── config/                  # 7 JSON config files
 ├── xaml/
 │   └── ui.xaml              # WPF layout (~630 lines)

@@ -35,10 +35,14 @@ The script auto-elevates to Admin if not already running as Admin.
 
 ```
 HksUtil/
-├── app.ps1                    # Entry point (~160 lines: auto-elevate, dot-source, XAML, NoUI)
+├── app.ps1                    # Development entry point (~200 lines: $sync, RunspacePool, dot-source, XAML, NoUI)
+├── install.ps1                # irm|iex bootstrapper (clones repo + runs app.ps1)
 ├── scripts/
 │   ├── start.ps1              # Compiled script header template (header, params, admin check)
 │   └── Compile.ps1            # Build script — merges → hksutil.ps1 (single-file output)
+├── functions/
+│   ├── public/                # Reusable public functions (Invoke-WPFRunspace, Invoke-WPFUIThread)
+│   └── private/               # Internal helpers (reserved for future use)
 ├── docs/
 │   └── HKSUITL_PROJECT_DOCS.md # This file
 ├── README.md                  # GitHub documentation
@@ -89,7 +93,7 @@ HksUtil/
 3.  Set `$script:appRoot = $PSScriptRoot`
 4.  Parse `-Noui`, `-Config <path>`, `-Apply`, `-Export` parameters
 5.  Load all 7 JSON files from `config/` → `$script:appsConfig`, `$script:tweaksConfig`, etc.
-6.  **GUI mode**: Load `xaml/ui.xaml` → XamlReader → build `$controls` hashtable
+6.  **GUI mode**: Load `xaml/ui.xaml` → XamlReader → build `$sync.controls` hashtable
 7.  Dot-source all 13 modules from `modules/` (order: logger → core → theme → navigation → tweaks → search → toolbar → dns → terminal → utility → build → install → features)
 8.  Apply theme (default "dark")
 9.  Show initial page: "Install"
@@ -126,15 +130,15 @@ Row 2: StatusBar (auto height)
 app.ps1
  ├── logger.ps1        (no deps)
  ├── core.ps1          (depends: logger)
- ├── theme.ps1         (depends: core [$sync, $controls])
- ├── navigation.ps1    (depends: core [$sync, $controls])
+ ├── theme.ps1         (depends: core [$sync, $sync.controls])
+ ├── navigation.ps1    (depends: core [$sync, $sync.controls])
  ├── tweaks.ps1        (depends: logger, core)
- ├── search.ps1        (depends: core [$controls])
+ ├── search.ps1        (depends: core [$sync.controls])
  ├── toolbar.ps1       (depends: logger, core, theme, navigation)
- ├── dns.ps1           (depends: logger, core [$controls])
+ ├── dns.ps1           (depends: logger, core [$sync.controls])
  ├── terminal.ps1      (depends: logger, core)
  ├── utility.ps1       (no deps)
- ├── build.ps1         (depends: core [$controls, $window], logger)
+ ├── build.ps1         (depends: core [$sync.controls, $sync.window], logger)
  ├── install.ps1       (depends: logger, core)
  └── features.ps1      (depends: logger, core)
 ```
@@ -162,7 +166,7 @@ app.ps1
 }
 ```
 
-`Apply-Theme` reads from `$script:themesConfig` → creates `SolidColorBrush` via `BrushConverter` → sets `$window.Resources` dictionary entries. Fallback to console when `Application.Current` is null.
+`Apply-Theme` reads from `$script:themesConfig` → creates `SolidColorBrush` via `BrushConverter` → sets `$sync.window.Resources` dictionary entries. Fallback to console when `Application.Current` is null.
 
 **Resource keys (22 total):**
 `Background`, `Foreground`, `HeaderBackground`, `HeaderBorder`, `FooterBackground`, `FooterBorder`,
@@ -343,7 +347,7 @@ Each: `{ description, ipv4: [2], ipv6: [2] }`
 | `Set-ProgressTaskbar` | core.ps1 | Taskbar progress state |
 | `Update-InstalledCache` | core.ps1 | Run `winget list`, parse installed app IDs |
 | `Ensure-PackageManager` | core.ps1 | Auto-install WinGet/Choco if missing |
-| `Get-WpfResource` | core.ps1 | Safe `$window.FindResource()` with try/catch, returns null on miss |
+| `Get-WpfResource` | core.ps1 | Safe `$sync.window.FindResource()` with try/catch, returns null on miss |
 | `Apply-Theme` | theme.ps1 | Read config.json themes → BrushConverter → set Resources |
 | `Switch-Page` | navigation.ps1 | Show one page, update nav button styles |
 | `Save-OriginalValues` | tweaks.ps1 | Backup service startup + registry before tweak |
@@ -361,8 +365,8 @@ Each: `{ description, ipv4: [2], ipv6: [2] }`
 
 - **XAML**: All colors via `{DynamicResource key}`, never hardcoded hex
 - **PowerShell**: Dynamic UI via `New-Object` + `SetResourceReference()` for theme-aware colors
-- **Event wiring**: `$controls["Name"].Add_Event({ scriptblock })` or `$btn.Add_Click({ $this.Tag ... })`
-- **Control retrieval**: XAML parse → `$xaml.SelectNodes("//*[@Name]")` → `$controls[$key] = $window.FindName($key)`
+- **Event wiring**: `$sync.controls["Name"].Add_Event({ scriptblock })` or `$btn.Add_Click({ $this.Tag ... })`
+- **Control retrieval**: XAML parse → `$xaml.SelectNodes("//*[@Name]")` → `$sync.controls[$key] = $sync.window.FindName($key)`
 - **Config load**: `Get-Content -Raw -Encoding UTF8 | ConvertFrom-Json` on each file in `config/`
 - **All user-facing messages**: `Write-Log` (console) and `Show-Confirm`/`Show-Info` (GUI)
 - **Progress**: `Show-Progress`/`Hide-Progress` wrappers (GUI overlay or console fallback)
@@ -386,7 +390,7 @@ Each: `{ description, ipv4: [2], ipv6: [2] }`
 
 6. **`[System.Windows.Application]::Current`** may be `$null` when running from PowerShell (no WPF Application object). Always check before accessing `.Resources`.
 
-7. **`$controls.Keys`** enumeration must use a copy (`@($controls.Keys)`) when removing entries during iteration.
+7. **`$sync.controls.Keys`** enumeration must use a copy (`@($sync.controls.Keys)`) when removing entries during iteration.
 
 8. **PowerShell `foreach`** does NOT create a new scope per iteration; closure variables inside event handlers must be captured via `$this.Tag`.
 
@@ -396,7 +400,7 @@ Each: `{ description, ipv4: [2], ipv6: [2] }`
 11. **COM objects** (`WScript.Shell`) must be released with `[Runtime.InteropServices.Marshal]::ReleaseComObject()` in `finally` block.
 12. **`OpenFileDialog`** must be disposed via `try/finally` pattern to avoid resource leaks.
 13. **`Start-Process`** with multi-word command (e.g. `"control printers"`) must split into `-FilePath` and `-ArgumentList`.
-14. **`$controls["BtnToolbarSettings"]`** may be `$null` if the settings toggle button is absent — always guard before `.IsChecked = $false`.
+14. **`$sync.controls["BtnToolbarSettings"]`** may be `$null` if the settings toggle button is absent — always guard before `.IsChecked = $false`.
 15. **`$null -eq $_.Value`** check preferred over truthy `$_.Value` for arg builder — `$false` or `0` are valid non-null values.
 
 ### Bugs Found & Fixed
@@ -415,14 +419,14 @@ Each: `{ description, ipv4: [2], ipv6: [2] }`
 | 10 | `Set-ItemProperty` missing `-Type` parameter | build.ps1 | Added `$t` fallback to `"String"` |
 | 11 | `FindResource` unguarded (8 calls) | dns.ps1, build.ps1 | Created `Get-WpfResource` helper in core.ps1 |
 | 12 | `logLines` never populated by Write-Log | logger.ps1, core.ps1 | Write-Log appends; init moved to module-level |
-| 13 | SearchBox null access in BtnClearSearch | app.ps1 | Added `if ($controls["SearchBox"])` guard |
+| 13 | SearchBox null access in BtnClearSearch | app.ps1 | Added `if ($sync.controls["SearchBox"])` guard |
 | 14 | ChkShowInstalled wired twice | search.ps1 | Removed from search.ps1, kept in app.ps1 |
-| 15 | `$controls` null in compiled script | Compile.ps1 | `$controls = @{}` injected before module embed |
+| 15 | `$sync.controls` null in compiled script | Compile.ps1 | `$sync.controls = @{}` injected before module embed |
 
 ### 47 → 72 Code Audit Issues (All Fixed)
 
-- **HIGH (15):** Show-Progress named params, registry `-Type`, deep clean guard, null control guards, `$sync.PSScriptRoot` removed, anchored regex cache, `Apply-Filters` null Tag guard, confirmation before execution, `-Encoding UTF8` on all `Get-Content`, `$reader.Close()` disposal, TerminalInput missing from XAML, [bool] cast invert, Set-ItemProperty -Type, FindResource unguarded, logLines never populated, SearchBox null, ChkShowInstalled double-wire, $controls null
-- **MEDIUM + LOW (57):** empty catch → Write-Log (8 spots), Relaunch arg builder null check, Features section guard, navigation null guard (pages/navButtons), BtnToolbarSettings guard (5 spots), OpenFileDialog dispose, COM release, pwsh fallback, Start-Process multi-word split, dead code removed (importInProgress, Invoke-HksUtilHeadless), typed enum, ConvertTo-Json -Depth 5, null `$controls` filtered, `$scriptCmd` else branch, file header removal, formatting cleanup
+- **HIGH (15):** Show-Progress named params, registry `-Type`, deep clean guard, null control guards, `$sync.PSScriptRoot` removed, anchored regex cache, `Apply-Filters` null Tag guard, confirmation before execution, `-Encoding UTF8` on all `Get-Content`, `$reader.Close()` disposal, TerminalInput missing from XAML, [bool] cast invert, Set-ItemProperty -Type, FindResource unguarded, logLines never populated, SearchBox null, ChkShowInstalled double-wire, $sync.controls null
+- **MEDIUM + LOW (57):** empty catch → Write-Log (8 spots), Relaunch arg builder null check, Features section guard, navigation null guard (pages/navButtons), BtnToolbarSettings guard (5 spots), OpenFileDialog dispose, COM release, pwsh fallback, Start-Process multi-word split, dead code removed (importInProgress, Invoke-HksUtilHeadless), typed enum, ConvertTo-Json -Depth 5, null `$sync.controls` filtered, `$scriptCmd` else branch, file header removal, formatting cleanup
 
 ---
 
@@ -446,23 +450,23 @@ Each: `{ description, ipv4: [2], ipv6: [2] }`
 
 ## 11. BUILD SYSTEM (Compile.ps1)
 
-`Compile.ps1` merges all source files into a single portable `hksutil.ps1`:
+`Compile.ps1` merges all source files into a single portable `hksutil.ps1` for deployment:
 
 **Flow:**
 1. Read `scripts/start.ps1` → replace `#{replaceme}` with version date (`yy.MM.dd`)
 2. Read all 13 modules in dependency order (logger → core → theme → navigation → tweaks → search → toolbar → dns → terminal → utility → build → install → features)
-3.  Read all JSON files from `config/` → embed as here-strings → parse at runtime
+3. Read all JSON files from `config/` → embed as here-strings → parse at runtime
 4. Read `xaml/ui.xaml` → embed as here-string → parse at runtime
 5. Append compiled main body (NoUI/Export logic, XAML loading, UI setup, event handlers)
 6. Write to `hksutil.ps1`
 
 **Usage:**
 ```powershell
-.\scripts\Compile.ps1        # Produces hksutil.ps1
+.\scripts\Compile.ps1        # Produces hksutil.ps1 (not tracked in git)
 .\scripts\Compile.ps1 -Run   # Compile and launch
 ```
 
-The output `hksutil.ps1` is gitignored (not tracked in repo). Compiled version supports the same params as `app.ps1`.
+The compiled `hksutil.ps1` supports the same params as `app.ps1`. It is **not** committed to the repo — users should run `app.ps1` directly or use `install.ps1` for remote deployment.
 
 ---
 
