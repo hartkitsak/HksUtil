@@ -4,24 +4,26 @@
 > Project: Windows Optimizer Tool (PowerShell + WPF)
 > Author: hartkitsak
 > Repo: https://github.com/hartkitsak/HksUtil
-> Path: D:\dev-setup\HksUtil\ (Windows) ↔ /home/hart_kitsak/projects/HksUtil (WSL)
+> Path: D:\dev-setup\HksUtil
 
 ---
 
 ## 1. PROJECT OVERVIEW
 
-HksUtil is a GUI Windows optimization utility built with **PowerShell** (code-behind) and **WPF XAML** (UI layout). It provides:
+HksUtil is a GUI Windows optimization utility built with **PowerShell 5.1** (code-behind) and **WPF XAML** (UI layout). It provides:
 
-- **Install Apps** — Search/install/uninstall via WinGet or Chocolatey
-- **System Tweaks** — Registry, services, AppX removals with undo
+- **Install Apps** — Search/install/uninstall via WinGet or Chocolatey (42 apps, 6 categories)
+- **System Tweaks** — Registry, services, AppX removals with undo + System Restore
 - **Features & Fixes** — Enable Windows features + run system repair scripts
-- **Preferences** — Toggle Windows settings with immediate registry apply
-- **Legacy Panels** — Quick access to classic Windows control panels
-- **Settings** — DNS provider switcher, create shortcut, Terminal Dotfiles install
+- **Preferences** — Toggle 20 Windows settings with immediate registry apply
+- **Legacy Panels** — Quick access to 16 classic Windows control panels/tools
+- **Settings** — DNS provider switcher, Export/Import config, Terminal Dotfiles install, desktop shortcut
 
-**Launch method (Windows PowerShell Admin):**
+**Launch:**
 ```powershell
 powershell -ExecutionPolicy Bypass -File "D:\dev-setup\HksUtil\app.ps1"
+# Or remote:
+irm "https://raw.githubusercontent.com/hartkitsak/HksUtil/main/launcher.ps1" | iex
 ```
 
 The script auto-elevates to Admin if not already running as Admin.
@@ -32,21 +34,39 @@ The script auto-elevates to Admin if not already running as Admin.
 
 ```
 HksUtil/
-├── app.ps1                    # Main PowerShell code-behind (~880 lines)
-├── ui.xaml                    # WPF XAML UI layout (~650 lines)
-├── launcher.ps1               # Bootstrap script for irm|iex install
-├── README.md                  # Project documentation
-├── .gitignore                 # Git ignore rules
-├── .git/                      # Git metadata (1 commit)
+├── app.ps1                    # Entry point (~160 lines: auto-elevate, dot-source, XAML, NoUI)
+├── launcher.ps1               # Bootstrap script for irm|iex
+├── README.md                  # GitHub documentation
+├── .gitignore
 ├── config/
-│   ├── apps.json              # App definitions for Install page (6 categories, 42 apps)
-│   ├── tweaks.json            # Tweak definitions (3 groups, 17 tweaks)
-│   ├── dns.json               # DNS provider list (8 providers)
-│   ├── preferences.json       # Windows preferences (22 toggles)
-│   └── features.json          # Features + Fixes definitions (2 sections, 15 entries)
-└── themes/
-    ├── Dark.xaml               # Dark theme ResourceDictionary (20 keys)
-    └── Light.xaml              # Light theme ResourceDictionary (20 keys, same keys)
+│   └── config.json            # Unified config (7 sections: meta, themes, apps, tweaks, dns, preferences, features)
+├── xaml/
+│   └── ui.xaml                # WPF UI layout (~660 lines)
+├── modules/                   # 13 PowerShell modules
+│   ├── logger.ps1             # Write-Log, Show-HksUtilLogo, Show-Confirm, Show-Info, Set-Status
+│   ├── core.ps1               # $sync hashtable, Invoke-WPFUIThread, Show/Hide-Progress, Set-ProgressTaskbar,
+│   │                          # Update-InstalledCache, Ensure-PackageManager, Invoke-HksUtilHeadless,
+│   │                          # $script:logLines initialization
+│   ├── theme.ps1              # Apply-Theme via config.json → BrushConverter (no XAML ResourceDictionary)
+│   ├── navigation.ps1         # Switch-Page, nav button wiring, keyboard handler
+│   ├── tweaks.ps1             # Save-OriginalValues, Invoke-UndoTweaks (log-based + System Restore dialog),
+│   │                          # Set-TweakRegistry, Set-TweakServices, Invoke-TweakScript
+│   ├── search.ps1             # Apply-Filters (search text + installed filter), SearchHint toggle
+│   ├── toolbar.ps1            # Title bar button handlers (theme, min/max/close, gear menu: export, import, about, docs, sponsors)
+│   ├── dns.ps1                # DNS radio button cards + Apply button
+│   ├── terminal.ps1           # Invoke-TerminalAction for dotfiles install/uninstall
+│   ├── utility.ps1            # Create desktop shortcut via WScript.Shell COM
+│   ├── build.ps1              # Dynamic UI builder for all pages (apps, tweaks, features, preferences, legacy)
+│   ├── install.ps1            # Batch install/uninstall logic (Invoke-Install, Invoke-Uninstall)
+│   └── features.ps1           # Invoke-RunFeatures (applies checked feature checkboxes)
+└── tests/                     # Pester 3.4.0 test suite (32 tests, 7 files)
+    ├── logger.Tests.ps1       # Show-HksUtilLogo, Write-Log types, Show-Confirm/Info/Set-Status
+    ├── core.Tests.ps1         # Invoke-WPFUIThread, Show-Progress, Set-ProgressTaskbar, Update-InstalledCache
+    ├── navigation.Tests.ps1   # Switch-Page, pages/navButtons/UpdateselectedCount
+    ├── search.Tests.ps1       # Apply-Filters, Update-SelectedCount
+    ├── terminal.Tests.ps1     # Invoke-TerminalAction (winget, choco)
+    ├── theme.Tests.ps1        # Apply-Theme defined, currentTheme defaults, appRoot set
+    └── tweaks.Tests.ps1       # Save-OriginalValues (store, skip duplicates, empty tweak), Invoke-UndoTweaks
 ```
 
 ---
@@ -55,26 +75,16 @@ HksUtil/
 
 ### 3.1 Startup Flow (app.ps1)
 
-1. Load WPF assemblies (`PresentationFramework`, `PresentationCore`, `WindowsBase`)
-2. Define utility functions: `Write-Log`, `Show-Confirm`, `Show-Info`, `Set-Status`, `Update-InstalledCache`, `Apply-Theme`
-3. Check Admin → if not, relaunch via `Start-Process -Verb RunAs` then `exit`
-4. Load `ui.xaml` via `XamlReader.Load()` (replace `x:Name` → `Name`)
-5. Build `$controls` dictionary: all `Name` attributes from XAML → `$window.FindName()`
-6. Attach window drag to `TitleText`
-7. Load all 5 JSON configs from `config/` directory
-8. Set up navigation (`Switch-Page` function + nav button Click handlers)
-9. Set up toolbar handlers (theme toggle, min/max/close)
-10. Set up Gear popup handlers (export/import config, about/docs/sponsors)
-11. Build dynamic UI for each page:
-    - **DNS**: RadioButton cards from `dns.json` + Apply button
-    - **Terminal Profile**: Install/Uninstall buttons
-    - **Shortcut**: Create Desktop Shortcut
-    - **Apps**: Category headers + CheckBox cards from `apps.json` + search/filter/install/uninstall
-    - **Tweaks**: CheckBox cards from `tweaks.json` + Run/Undo
-    - **Features**: CheckBox cards + Fix buttons from `features.json`
-    - **Preferences**: ToggleSwitch cards from `preferences.json` (apply immediately)
-    - **Legacy**: Hardcoded panel shortcut buttons
-12. Show initial page: "Install"
+1. Assert Admin → if not, relaunch via `Start-Process -Verb RunAs` then `exit`
+2. Load WPF assemblies
+3. Set `$script:appRoot = $PSScriptRoot`
+4. Parse `-Noui`, `-Config <path>`, `-Apply`, `-Export` parameters
+5. Load `config/config.json` → split into `$script:cfg` (raw), `$script:appsConfig`, `$script:tweaksConfig`, etc.
+6. **GUI mode**: Load `xaml/ui.xaml` → XamlReader → build `$controls` hashtable
+7. Dot-source all 13 modules from `modules/` (order: logger → core → theme → navigation → tweaks → search → toolbar → dns → terminal → utility → build → install → features)
+8. Apply theme (default "dark")
+9. Show initial page: "Install"
+10. **NoUI mode**: Skip XAML, call `Invoke-HksUtilHeadless` with config path
 
 ### 3.2 Window Configuration
 
@@ -84,284 +94,339 @@ ResizeMode="CanResizeWithGrip"
 <WindowChrome CaptionHeight="0" ResizeBorderThickness="5"/>
 ```
 
-- **No standard title bar** — custom toolbar (Border `ToolbarDrag`) with:
+- **Custom title bar** — `ToolbarDrag` Border with:
   - Left: app name + version
   - Center: nav buttons (Install, Tweaks, Features, Preferences, Legacy, Settings)
   - Right: theme toggle, gear menu, minimize, maximize, close
 - Window drag attached to `TitleText` only
-- Resize via WindowChrome grip (5px border)
+- Resize via WindowChrome (5px border)
 
 ### 3.3 Grid Layout (ui.xaml)
 
-```xml
-<Grid>
-    <Grid.RowDefinitions>
-        <RowDefinition Height="Auto"/>   <!-- Row 0: ToolbarDrag (title bar) -->
-        <RowDefinition Height="*"/>      <!-- Row 1: Content pages (ScrollViewers) -->
-        <RowDefinition Height="Auto"/>   <!-- Row 2: StatusBar -->
-    </Grid.RowDefinitions>
+```
+Row 0: ToolbarDrag (title bar, auto height)
+Row 1: Content pages (6 ScrollViewers, stacked, one visible at a time)
+Row 2: StatusBar (auto height)
 ```
 
-Row 1 contains 6 `ScrollViewer` pages stacked (only one visible at a time via `Visibility`):
-- `PageInstall` (default, Visible)
-- `PageTweaks` (Collapsed)
-- `PageFeatures` (Collapsed)
-- `PagePreferences` (Collapsed)
-- `PageLegacy` (Collapsed)
-- `PageSettings` (Collapsed)
+6 pages: `PageInstall`, `PageTweaks`, `PageFeatures`, `PagePreferences`, `PageLegacy`, `PageSettings`
 
-### 3.4 Theme System
+### 3.4 Module Dependency Graph
 
-- Two theme files: `themes/Dark.xaml` and `themes/Light.xaml`
-- Both define **exactly 20 resource keys** (same names, different colors)
-- `Apply-Theme` function: loads XAML → creates ResourceDictionary → replaces `$window.Resources.MergedDictionaries[0]`
-- All XAML colors use `{DynamicResource}` bindings
-- Code-behind colors use `$control.SetResourceReference([type]::Property, "key")`
-- `primaryColor` (accent): `#4D9DE0` (same in both themes)
-- **Nav buttons** use `SetResourceReference` for `selectedBackground`/`accentColor`/`textMuted` (updated on theme switch)
+```
+app.ps1
+ ├── logger.ps1        (no deps)
+ ├── core.ps1          (depends: logger)
+ ├── theme.ps1         (depends: core [$sync, $controls])
+ ├── navigation.ps1    (depends: core [$sync, $controls])
+ ├── tweaks.ps1        (depends: logger, core)
+ ├── search.ps1        (depends: core [$controls])
+ ├── toolbar.ps1       (depends: logger, core, theme, navigation)
+ ├── dns.ps1           (depends: logger, core [$controls])
+ ├── terminal.ps1      (depends: logger, core)
+ ├── utility.ps1       (no deps)
+ ├── build.ps1         (depends: core [$controls, $window], logger)
+ ├── install.ps1       (depends: logger, core)
+ └── features.ps1      (depends: logger, core)
+```
+
+### 3.5 NoUI Headless Mode
+
+```powershell
+.\app.ps1 -Noui -Config .\config\my-config.json -Apply
+.\app.ps1 -Export .\config\exported.json
+```
+
+- `-Noui` skips XAML loading, sets `$script:NoUI = $true`
+- `-Export <path>` saves current config to JSON
+- `-Apply` reads config → runs installs via `Ensure-PackageManager` + batch queue
+- Progress functions (`Show-Progress`, `Hide-Progress`) fallback to console logging in NoUI mode
+
+### 3.6 Theme System (JSON-based)
+
+**No XAML ResourceDictionary files.** Theme colors are stored in `config.json` → `themes` section:
+
+```json
+"themes": {
+  "dark": { "Background": "#FF1E1E1E", "Foreground": "#FFFFFFFF", ... },
+  "light": { "Background": "#FFFFFFFF", "Foreground": "#FF000000", ... }
+}
+```
+
+`Apply-Theme` reads the theme object → creates `SolidColorBrush` via `BrushConverter` → sets `$window.Resources` dictionary entries. Fallback to console when `Application.Current` is null.
+
+**Resource keys (22 total):**
+`Background`, `Foreground`, `HeaderBackground`, `HeaderBorder`, `FooterBackground`, `FooterBorder`,
+`CardBackground`, `CardForeground`, `CardBorder`,
+`AccentColor`, `AccentHover`, `CategoryHeaderColor`,
+`PageTitleColor`, `TextMuted`,
+`TextBoxBackground`, `TextBoxForeground`, `TextBoxBorder`,
+`DangerColor`, `DangerHover`,
+`SelectedBorder`, `SelectedBackground`,
+`HoverBackground`, `SecondaryBackground`, `SecondaryHover`
 
 ---
 
 ## 4. PAGE-BY-PAGE DETAILS
 
-### 4.1 Install Page (`PageInstall`)
+### 4.1 Install Page
 
-**Controls:**
-- `SearchBox` + `SearchHint` — text search with live filtering
-- `BtnClearSearch` — clears search
-- `ChkShowInstalled` — filter to installed only
-- `PkgWinGet` / `PkgChoco` — radio buttons for package manager
-- `BtnInstall` / `BtnUninstall` — batch install/uninstall
-- `BtnSelectAll` / `BtnClearSelection` — select/deselect all visible
-- `BtnCollapseAll` / `BtnExpandAll` — collapse/expand categories
-- `LblSelectedCount` — shows "Selected Apps: N"
-- `AppPanel1`/`AppPanel2`/`AppPanel3` — 3-column grid for app checkboxes
+**Controls:** `SearchBox`, `SearchHint`, `BtnClearSearch`, `ChkShowInstalled`, `PkgWinGet`, `PkgChoco`, `BtnInstall`, `BtnUninstall`, `BtnSelectAll`, `BtnClearSelection`, `BtnCollapseAll`, `BtnExpandAll`, `LblSelectedCount`, `AppPanel1/2/3`
 
-**Data source:** `config/apps.json` (6 categories, 42 apps)
+**Data source:** `config.json` → `apps` section (6 categories, 42 apps)
 
-**App CheckBox style:** `TweakCheckBox` (card with border, selected background on check)
+**Features:**
+- App checkboxes with `TweakCheckBox` card style + context menu (Install/Uninstall/Info)
+- Category headers (collapsible, expand/collapse all)
+- Live search via `Apply-Filters` (matches name, description, winget ID)
+- Installed filter via `Update-InstalledCache` (parses `winget list`)
+- Right-click context menu per app
 
-**Category system:**
-- Categories start **expanded** (`$script:categoryCollapsed[$cat] = $false`)
-- Header shows `"- CATEGORY (N)"` when expanded, `"+ CATEGORY (N)"` when collapsed
-- Click header to toggle collapse/expand
-- Collapse All / Expand All buttons work on all categories
+### 4.2 Tweaks Page
 
-**Installed filter:**
-- `Update-InstalledCache` function runs `winget list --accept-source-agreements`
-- Parses output by searching for each app ID using regex
-- `ChkShowInstalled` checkbox triggers `Apply-Filters`
-- Cache is populated on first check if empty
+**Controls:** `TweaksPanel1/2/3`, `BtnRunTweaks`, `BtnUndoTweaks`
 
-### 4.2 Tweaks Page (`PageTweaks`)
+**Data source:** `config.json` → `tweaks` section (3 groups)
 
-**Controls:**
-- `TweaksPanel1`/`TweaksPanel2`/`TweaksPanel3` — 3-column grid
-- `BtnRunTweaks` — apply selected tweaks
-- `BtnUndoTweaks` — undo all applied tweaks
+**Apply flow:**
+1. `New-SystemRestorePoint` → `Checkpoint-Computer`
+2. For each checked tweak: `Save-OriginalValues` (backup services + registry)
+3. Apply services → registry → AppX removal → scripts
+4. Log to `$script:tweakUndoLog`
 
-**Data source:** `config/tweaks.json` (3 groups, 17 tweaks)
+**Undo flow:** `Invoke-UndoTweaks` shows dialog:
+- **Log-based undo** — Restore registry values + service startup types (maps "Auto" → "Automatic")
+- **System Restore** — via `Restore-Computer` (disabled when no restore points exist)
 
-**Tweak CheckBox style:** `TweakCheckBox` (same card style)
+### 4.3 Features Page
 
-**Apply flow:** For each checked tweak:
-1. Save original values (`Save-OriginalValues`): service startup/status, registry values
-2. Apply services → registry → AppX removal → scripts
-3. Tweak is removed from `features.json` list? No — uses its own undo log (`$script:tweakUndoLog`)
+**Controls:** `FeaturesPanel1/2/3`, `FixesWrapPanel`, `BtnRunFeatures`
 
-**Undo flow:** Restores saved originals.
+**Data source:** `config.json` → `features` section (2 sub-sections: Features + Fixes)
 
-### 4.3 Features Page (`PageFeatures`)
+- **Features** — CheckBox cards, batch run via `BtnRunFeatures` → `Invoke-RunFeatures`
+- **Fixes** — Button cards (FeatureCard style), each with confirm dialog, runs inline scriptblock
 
-**Controls:**
-- `FeaturesSectionHeader` — "Windows Features" header
-- `FeaturesPanel1`/`FeaturesPanel2`/`FeaturesPanel3` — 3-column grid
-- `FixesSectionHeader` — "Fixes" header
-- `FixesWrapPanel` — wrap panel for fix buttons
-- `BtnRunFeatures` — run selected features
+### 4.4 Preferences Page
 
-**Data source:** `config/features.json` (2 sections: `Features` (9 entries) + `Fixes` (6 entries))
+**Controls:** `PrefsPanel1/2/3`
 
-**Features** — CheckBox cards (TweakCheckBox style), each runs a script on click of Run button
-**Fixes** — Buttons (FeatureCard style), each runs a script on its own click with confirmation
+**Data source:** `config.json` → `preferences` section (20 items)
 
-### 4.4 Preferences Page (`PagePreferences`)
+**ToggleSwitch style:** Custom CheckBox template (toggle appearance)
+**Apply on toggle:** Checked → `registry_on[]`, Unchecked → `registry_off[]`
+No "Apply" button — applies immediately.
 
-**Controls:**
-- `PrefsPanel1`/`PrefsPanel2`/`PrefsPanel3` — 3-column grid
+### 4.5 Legacy Page
 
-**Data source:** `config/preferences.json` (22 preferences)
+**Controls:** `LegacyPanel1/2/3`
 
-**ToggleSwitch style:** Custom CheckBox template with toggle appearance
+**Data:** 16 hardcoded entries in `build.ps1`:
 
-**Apply on toggle:** Checked = apply `registry_on[]` values, Unchecked = apply `registry_off[]` values
-- No "Apply" button — applies immediately on toggle
-- Each registry entry has: `path`, `name`, `value`
-- **Known issue:** `preferences.json` entries missing `"type"` field — registry writes default to REG_SZ instead of REG_DWORD
+| Panel | Command | Description |
+|-------|---------|-------------|
+| Computer Management | `compmgmt.msc` | Manage disks, services, event viewer |
+| Control Panel | `control` | Classic Windows Control Panel |
+| Device Manager | `devmgmt.msc` | View and update hardware devices |
+| Disk Management | `diskmgmt.msc` | Manage disk partitions and volumes |
+| Event Viewer | `eventvwr.msc` | View system logs and events |
+| Network Connections | `ncpa.cpl` | Manage network adapters |
+| Power Panel | `powercfg.cpl` | Configure power plans |
+| Printer Panel | `control printers` | Manage printers and print queues |
+| Region | `intl.cpl` | Regional format, language, location |
+| Registry Editor | `regedit` | View and edit registry |
+| Services | `services.msc` | Manage Windows services |
+| Sound Settings | `mmsys.cpl` | Configure audio devices |
+| System Properties | `sysdm.cpl` | System info, performance, remote |
+| Task Scheduler | `taskschd.msc` | Schedule automated tasks |
+| Time and Date | `timedate.cpl` | Set date, time, timezone |
+| Windows Restore | `rstrui.exe` | System Restore |
 
-### 4.5 Legacy Page (`PageLegacy`)
+**Card style:** `FeatureCard` (Button with Border, accent hover)
 
-**Controls:**
-- `LegacyPanel1`/`LegacyPanel2`/`LegacyPanel3` — 3-column grid
+### 4.6 Settings Page
 
-**Data:** 10 hardcoded entries in `app.ps1` (lines 605-614):
-- System Properties, Device Manager, Network Connections, Disk Management, Services, Event Viewer, Task Scheduler, Performance Monitor, Registry Editor, Group Policy Editor
-
-**Card style:** `FeatureCard` (Button with Border, accent color on hover)
-
-### 4.6 Settings Page (`PageSettings`)
-
-**Controls:**
-- `DnsRadioPanel` — StackPanel of RadioButton cards (DnsCardStyle)
-- `BtnApplyDns` — Apply DNS button
-- `BtnCreateShortcut` — Create Desktop Shortcut button
-- `BtnTerminalDotfiles` — Install Terminal Profile button
-- `BtnUninstallTerminal` — Uninstall Terminal Profile button
+**Controls:** `DnsRadioPanel`, `BtnApplyDns`, `BtnCreateShortcut`, `BtnTerminalDotfiles`, `BtnUninstallTerminal`
 
 **DNS System:**
-- RadioButton cards with `DnsCardStyle` (same card look as TweakCheckBox)
-- `GroupName="DnsProvider"` — single select
-- Reads from `config/dns.json` (8 providers)
-- Apply: `Set-DnsClientServerAddress` with primary adapter (`Get-NetAdapter -Physical | Where-Object Status -eq 'Up'`)
-- Fallback: `netsh interface ip set dns`
+- RadioButton cards with `DnsCardStyle`, `GroupName="DnsProvider"`
+- Reads from `config.json` → `dns` section (8 providers)
+- Apply: `Set-DnsClientServerAddress` (primary physical adapter), fallback: `netsh interface ip set dns`
 - Confirm dialog before applying
 
 **Terminal Dotfiles:**
-- Uses `Invoke-TerminalAction` function
-- Runs: `irm https://raw.githubusercontent.com/hartkitsak/Terminal-Dotfiles/master/install.ps1 | iex`
+- `Invoke-TerminalAction`: `irm https://raw.githubusercontent.com/hartkitsak/Terminal-Dotfiles/master/install.ps1 | iex`
 - Launches via `powershell -EncodedCommand` in separate window
 
 **Shortcut:** Creates desktop shortcut via `WScript.Shell` COM object
 
 ---
 
-## 5. UI.XAML — STYLE REFERENCE
+## 5. CONFIG.JSON REFERENCE
 
-| Style Key | Target | Purpose |
+Single unified file at `config/config.json` with 7 sections:
+
+### meta
+```json
+{ "version": "2.0", "author": "hartkitsak" }
+```
+
+### themes
+```json
+"dark": { "Background": "#FF1E1E1E", "Foreground": "#FFFFFFFF", ... },
+"light": { "Background": "#FFFFFFFF", "Foreground": "#FF000000", ... }
+```
+22 color keys per theme, applied at runtime via BrushConverter.
+
+### apps
+6 categories — Browsers (3), Security & Privacy (4), Development (11), Media & Creative (11), Utilities (10), Productivity (3)
+Each app: `{ content, winget, description }`
+
+### tweaks
+3 groups — Performance (4), Privacy (3), Essential Tweaks (10)
+Each tweak: `{ content, description, registry: [{path, name, value, type}], services: [{name, startup, status}], appx: [], script }`
+
+### dns
+8 providers — Google, Cloudflare, Cloudflare_Malware, Cloudflare_Malware_Adult, Open_DNS, Quad9, AdGuard_Ads_Trackers, AdGuard_Ads_Trackers_Malware_Adult
+Each: `{ description, ipv4: [2], ipv6: [2] }`
+
+### preferences
+20 toggles. Each: `{ content, description, registry_on: [{path, name, value}], registry_off: [{path, name, value}] }`
+
+### features
+2 sub-sections:
+- Features (9 entries) — `{ content, description, script }` for Windows feature enable
+- Fixes (6 entries) — `{ content, description, confirm, script }` for repair scripts with confirmation
+
+---
+
+## 6. UI.XAML STYLE REFERENCE
+
+| Style Key | Target | Used By |
 |-----------|--------|---------|
-| `CategoryHeader` | TextBlock | Section headers (accent color, bold) |
-| `AppCardCheckBox` | CheckBox | App cards (UNUSED — apps use TweakCheckBox) |
-| `TweakCheckBox` | CheckBox | Standard card checkbox (tweaks, apps, features) |
-| `ToggleSwitch` | CheckBox | Toggle switch (preferences) |
-| `PresetCard` | Button | (Unused in code?) |
-| `FeatureCard` | Button | Legacy panel buttons, Fix buttons |
-| `NavButtonStyle` | Button | (Unused — TopNavButtonStyle used instead) |
-| `ActionBtn` | Button | Filled accent button (primary action) |
-| `DangerBtn` | Button | Filled red button (destructive action) |
-| `SecondaryBtn` | Button | Filled secondary button |
-| `DnsCardStyle` | RadioButton | DNS provider card (same style as TweakCheckBox) |
+| `CategoryHeader` | TextBlock | Section headers (accent, bold) |
+| `TweakCheckBox` | CheckBox | App/tweak/feature cards |
+| `ToggleSwitch` | CheckBox | Preference toggles |
+| `FeatureCard` | Button | Legacy panels, Fix buttons |
+| `ActionBtn` | Button | Filled accent primary action |
+| `DangerBtn` | Button | Filled red destructive action |
+| `SecondaryBtn` | Button | Filled secondary action |
+| `DnsCardStyle` | RadioButton | DNS provider cards |
 | `ToolbarIconBtn` | Button | Toolbar icon (MDL2 font) |
 | `ToolbarIconToggleBtn` | ToggleButton | Toolbar toggle icon |
 | `PopupMenuItem` | Button | Gear menu item |
-| `ActionBtnOutline` | Button | Outlined accent button (used in old code) |
-| `DangerBtnOutline` | Button | Outlined red button (used in old code) |
-| `TopNavButtonStyle` | Button | Navigation tab button |
-
-### DynamicResource Keys (20 total)
-
-`windowBackground`, `headerBackground`, `headerBorder`, `footerBackground`, `footerBorder`,
-`cardBackground`, `cardForeground`, `cardBorder`,
-`accentColor`, `accentHover`, `categoryHeaderColor`,
-`pageTitleColor`, `textMuted`,
-`textBoxBackground`, `textBoxForeground`, `textBoxBorder`,
-`dangerColor`, `dangerHover`,
-`selectedBorder`, `selectedBackground`,
-`hoverBackground`, `secondaryBackground`, `secondaryHover`
+| `TopNavButtonStyle` | Button | Navigation tab buttons |
 
 ---
 
-## 6. APP.PS1 — KEY FUNCTIONS
+## 7. KEY FUNCTIONS
 
-| Function | Lines | Purpose |
-|----------|-------|---------|
-| `Write-Log` | 6-16 | Console logging with timestamp + color |
-| `Show-Confirm` | 18-22 | MessageBox Yes/No |
-| `Show-Info` | 24-27 | MessageBox OK |
-| `Set-Status` | 32-34 | Update status bar text |
-| `Update-InstalledCache` | 36-49 | Run `winget list`, parse installed IDs |
-| `Apply-Theme` | 63-76 | Load theme XAML, swap Resources |
-| `Switch-Page` | 106-124 | Show one page, update nav button styles |
-| `Invoke-TerminalAction` | 309-315 | Run terminal dotfiles install/uninstall |
-| `Save-OriginalValues` | 379-411 | Backup service + registry before tweak apply |
-| `Invoke-UndoTweaks` | 413-441 | Restore all backed-up values |
-| `Apply-Filters` | 672-701 | Search + installed filter on app list |
-| `Update-SelectedCount` | 713-715 | Count checked apps, update label |
-
----
-
-## 7. KNOWN BUGS / ISSUES
-
-### Bugs
-1. **`Invoke-TerminalAction` defined twice** (lines 309 and 367) — second overrides first
-2. **`BtnUninstallTerminal` wired twice** (lines 327 and 359) — harmless duplicate
-3. **`preferences.json` missing `"type"` field** — registry values written as REG_SZ instead of REG_DWORD
-4. **`AppCardCheckBox` style never used** — apps use TweakCheckBox instead
-5. **`Invoke-WinUtilExplorerUpdate` undefined** — called in tweaks.json Widget remove tweak but function doesn't exist
-
-### Style/Resolved
-6. ~~Nav buttons hardcoded colors~~ → Now uses `SetResourceReference` (theme-aware)
-7. ~~DNS ComboBox dropdown invisible~~ → Now uses RadioButton cards (DnsCardStyle)
-8. ~~Ghost controls (BtnExportConfig etc.)~~ → Removed
-9. ~~Window-level DragMove~~ → Removed (only TitleText drag)
-10. ~~$appPanels null scope~~ → Fixed (initialized before if block)
+| Function | Module | Purpose |
+|----------|--------|---------|
+| `Write-Log` | logger.ps1 | Console logging — levels: OK/INFO/WARN/FAIL/>/Header |
+| `Show-HksUtilLogo` | logger.ps1 | ASCII art logo + `=====HksUtil v2.0=====` header |
+| `Show-Confirm` | logger.ps1 | MessageBox Yes/No (always returns $true in NoUI) |
+| `Show-Info` | logger.ps1 | MessageBox OK (no-op in NoUI) |
+| `Set-Status` | logger.ps1 | Update status bar text |
+| `Invoke-WPFUIThread` | core.ps1 | Synchronous dispatch on WPF dispatcher (or direct call) |
+| `Show-Progress` | core.ps1 | Show overlay with text + progress bar (or console in NoUI) |
+| `Hide-Progress` | core.ps1 | Hide overlay |
+| `Set-ProgressTaskbar` | core.ps1 | Taskbar progress state |
+| `Update-InstalledCache` | core.ps1 | Run `winget list`, parse installed app IDs |
+| `Ensure-PackageManager` | core.ps1 | Auto-install WinGet/Choco if missing |
+| `Invoke-HksUtilHeadless` | core.ps1 | NoUI entry point: load config → batch install |
+| `Apply-Theme` | theme.ps1 | Read config.json themes → BrushConverter → set Resources |
+| `Switch-Page` | navigation.ps1 | Show one page, update nav button styles |
+| `Save-OriginalValues` | tweaks.ps1 | Backup service startup + registry before tweak |
+| `Invoke-UndoTweaks` | tweaks.ps1 | Log-based or System Restore undo dialog |
+| `Apply-Filters` | search.ps1 | Search text match + installed filter on apps |
+| `Update-SelectedCount` | search.ps1 | Count checked apps, update LblSelectedCount |
+| `Invoke-TerminalAction` | terminal.ps1 | Run dotfiles install/uninstall in new window |
+| `Invoke-Install` | install.ps1 | Batch install checked apps |
+| `Invoke-Uninstall` | install.ps1 | Batch uninstall checked apps |
+| `Invoke-RunFeatures` | features.ps1 | Run selected feature scripts |
 
 ---
 
-## 8. CONFIG FILES REFERENCE
-
-### apps.json (6 categories, 42 apps)
-```
-Browsers (3) | Security & Privacy (4) | Development (11)
-Media & Creative (11) | Utilities (10) | Productivity (3)
-```
-
-### tweaks.json (3 groups, 17 tweaks)
-```
-Performance (4) | Privacy (3) | Essential Tweaks (10)
-```
-
-### dns.json (8 providers)
-```
-Google, Cloudflare, Cloudflare_Malware, Cloudflare_Malware_Adult,
-Open_DNS, Quad9, AdGuard_Ads_Trackers, AdGuard_Ads_Trackers_Malware_Adult
-```
-Each: `{ description, ipv4: [2], ipv6: [2] }`
-
-### preferences.json (22 preferences)
-Each: `{ content, description, registry_on: [{path, name, value}], registry_off: [{path, name, value}] }`
-
-### features.json (2 sections, 15 entries)
-```
-Features (9) | Fixes (6)
-```
-Each: `{ content, description, script }` — Fixes have confirm prompt
-
----
-
-## 9. CODING CONVENTIONS
+## 8. CODING CONVENTIONS
 
 - **XAML**: All colors via `{DynamicResource key}`, never hardcoded hex
-- **PowerShell**: Dynamic UI built with `New-Object` + `SetResourceReference()` for theme-aware colors
-- **Event wiring**: `$controls["Name"].Add_Event({ scriptblock })`
-- **Control retrieval**: `$controls = @{}` + `$xaml.SelectNodes("//*[@Name]") | ForEach-Object { $controls[$_.Name] = $window.FindName($_.Name) }`
-- **JSON configs**: Loaded via `Get-Content -Raw | ConvertFrom-Json` at startup
-- **Config path**: `Join-Path $PSScriptRoot "config"`
-- **All user-facing messages** go through `Write-Log` (console) and `Show-Confirm`/`Show-Info` (GUI)
-- **Status bar** updates via `Set-Status` function
+- **PowerShell**: Dynamic UI via `New-Object` + `SetResourceReference()` for theme-aware colors
+- **Event wiring**: `$controls["Name"].Add_Event({ scriptblock })` or `$btn.Add_Click({ $this.Tag ... })`
+- **Control retrieval**: XAML parse → `$xaml.SelectNodes("//*[@Name]")` → `$controls[$key] = $window.FindName($key)`
+- **Config load**: `Get-Content -Raw -Encoding UTF8 | ConvertFrom-Json` on `config/config.json`
+- **All user-facing messages**: `Write-Log` (console) and `Show-Confirm`/`Show-Info` (GUI)
+- **Progress**: `Show-Progress`/`Hide-Progress` wrappers (GUI overlay or console fallback)
+- **Module loading**: Dot-sourced in strict order (app.ps1 lines 99-111)
 
 ---
 
-## 10. SYNC WORKFLOW
+## 9. CRITICAL RULES & BUG HISTORY
 
-Edits are made in WSL (`/home/hart_kitsak/projects/HksUtil/`) then copied to Windows D: drive:
-```bash
-cp /home/hart_kitsak/projects/HksUtil/*.ps1 /mnt/d/dev-setup/HksUtil/
-cp /home/hart_kitsak/projects/HksUtil/ui.xaml /mnt/d/dev-setup/HksUtil/ui.xaml
-cp /home/hart_kitsak/projects/HksUtil/config/*.json "/mnt/d/dev-setup/HksUtil/config/"
-cp /home/hart_kitsak/projects/HksUtil/themes/*.xaml "/mnt/d/dev-setup/HksUtil/themes/"
-```
+### Critical Rules for AI
 
-Run on Windows:
-```powershell
-powershell -ExecutionPolicy Bypass -File "D:\dev-setup\HksUtil\app.ps1"
-```
+1. **`$PSScriptRoot`** in dot-sourced files resolves to caller's directory for inline code, but unpredictably inside functions — always capture at dot-source time into a script-level variable (`$script:appRoot`).
+
+2. **`Children.Add()`** in WPF returns int (insertion index); must pipe to `Out-Null` or assign to `$null`.
+
+3. **`ConvertTo-Json`** default depth is 2; must specify `-Depth` for nested objects.
+
+4. **Registry `Set-ItemProperty`** without `-Type` defaults to `String` even for DWORD data.
+
+5. **Pester 3.4.0** does not support `-Tag` on `It`; uses `Should` (not `Should -Be`).
+
+6. **`[System.Windows.Application]::Current`** may be `$null` when running from PowerShell (no WPF Application object). Always check before accessing `.Resources`.
+
+7. **`$controls.Keys`** enumeration must use a copy (`@($controls.Keys)`) when removing entries during iteration.
+
+8. **PowerShell `foreach`** does NOT create a new scope per iteration; closure variables inside event handlers must be captured via `$this.Tag`.
+
+9. **`$script:config`** must NOT be used as variable name — collides with `[string]$Config` parameter. Use `$script:cfg`.
+
+10. **`Win32_Service.StartMode`** returns `"Auto"` for Automatic services; `Set-Service -StartupType` requires `"Automatic"`. Map before calling.
+
+### Bugs Found & Fixed
+
+| # | Bug | File | Fix |
+|---|-----|------|-----|
+| 1 | `$script:config` collides with `[string]$Config` parameter | app.ps1 | Renamed to `$script:cfg` |
+| 2 | `Apply-Theme "Dark"` but config key is `"dark"` (lowercase) | app.ps1 | Changed to lowercase |
+| 3 | `registry_on[0].value` accessed outside guard | build.ps1:78-83 | Unified into `$hasRegistryOn` |
+| 4 | `Get-Content $Config` without `Test-Path` | app.ps1 | Added path validation |
+| 5 | `$script:logLines` never defined | core.ps1 | Initialized at module load |
+| 6 | `Write-Log "Cmd"` type unhandled | logger.ps1 | Added `"Cmd" → ">"` with Cyan |
+| 7 | Service undo uses `"Auto"` but `Set-Service` needs `"Automatic"` | tweaks.ps1:79 | Added mapping |
+| 8 | `BtnGetInstalled` removed from XAML + handler | xaml/ui.ps1 | Removed stale binding |
+
+### 47 Code Audit Issues (All Fixed)
+
+- 11 HIGH: Show-Progress named params, registry `-Type`, deep clean guard, null control guards, `$sync.PSScriptRoot` removed, anchored regex cache, `Apply-Filters` null Tag guard, confirmation before execution, `-Encoding UTF8` on all `Get-Content`, `$reader.Close()` disposal
+- 24 MEDIUM: Typed enum for dispatcher, `ConvertTo-Json -Depth 5`, `$script:importInProgress` flag, null `$controls` filtered, `$scriptCmd` else branch, various guard clauses
+- 12 LOW: `$script:tableHeaderPrinted` removed, minor formatting
+
+---
+
+## 10. TEST SUITE
+
+**Framework:** Pester 3.4.0
+**Total tests:** 32 (7 files)
+**Run:** `Invoke-Pester .\tests\` from repo root
+
+| File | Tests | Coverage |
+|------|-------|----------|
+| `logger.Tests.ps1` | 6 | Show-HksUtilLogo, Write-Log (all 6 types), Show-Confirm/Info/Set-Status |
+| `core.Tests.ps1` | 6 | Invoke-WPFUIThread (2), Show-Progress (3), Set-ProgressTaskbar, Update-InstalledCache |
+| `navigation.Tests.ps1` | 6 | Switch-Page defined, pages/navButtons hashtable, nav buttons Tag, Update-SelectedCount (3) |
+| `search.Tests.ps1` | 4 | Apply-Filters (no filter, with search), Update-SelectedCount (3), null guard |
+| `terminal.Tests.ps1` | 3 | Invoke-TerminalAction defined, winget launch, choco launch |
+| `theme.Tests.ps1` | 3 | Apply-Theme defined, currentTheme defaults, appRoot set |
+| `tweaks.Tests.ps1` | 4 | Save-OriginalValues (3), Invoke-UndoTweaks empty |
+
+---
+
+## 11. VERSION HISTORY
+
+| Version | Date | Changes |
+|---------|------|---------|
+| 1.x | — | Monolithic app.ps1 (1135 lines), 6 separate JSON configs, XAML theme files |
+| 2.0 | 2026 | 14-file modular split, unified config.json, 32 Pester tests, NoUI mode, JSON-based theming, System Restore, 47 code audit fixes, 8 bug fixes |

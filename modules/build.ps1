@@ -153,12 +153,18 @@ if ($controls["FixesWrapPanel"] -and $featuresConfig -and $featuresConfig.PSObje
 $legacyPanels = @(
     @{ Name = "Computer Management"; Desc = "Manage disks, services, event viewer, and more"; Command = "compmgmt.msc" },
     @{ Name = "Control Panel"; Desc = "Classic Windows Control Panel"; Command = "control" },
+    @{ Name = "Device Manager"; Desc = "View and update hardware devices and drivers"; Command = "devmgmt.msc" },
+    @{ Name = "Disk Management"; Desc = "Manage disk partitions, volumes, and drives"; Command = "diskmgmt.msc" },
+    @{ Name = "Event Viewer"; Desc = "View system logs and application events"; Command = "eventvwr.msc" },
     @{ Name = "Network Connections"; Desc = "Manage network adapters and connections"; Command = "ncpa.cpl" },
     @{ Name = "Power Panel"; Desc = "Configure power plans and battery settings"; Command = "powercfg.cpl" },
-    @{ Name = "Printer Panel"; Desc = "Manage printers and print queues"; Command = "printui" },
+    @{ Name = "Printer Panel"; Desc = "Manage printers and print queues"; Command = "control printers" },
     @{ Name = "Region"; Desc = "Set regional format, language, and location"; Command = "intl.cpl" },
+    @{ Name = "Registry Editor"; Desc = "View and edit Windows registry entries"; Command = "regedit" },
+    @{ Name = "Services"; Desc = "Manage Windows services and their startup types"; Command = "services.msc" },
     @{ Name = "Sound Settings"; Desc = "Configure audio devices and sound effects"; Command = "mmsys.cpl" },
     @{ Name = "System Properties"; Desc = "View system info, performance, remote settings"; Command = "sysdm.cpl" },
+    @{ Name = "Task Scheduler"; Desc = "Schedule automated tasks and triggers"; Command = "taskschd.msc" },
     @{ Name = "Time and Date"; Desc = "Set date, time, and timezone"; Command = "timedate.cpl" },
     @{ Name = "Windows Restore"; Desc = "System Restore - create or restore restore points"; Command = "rstrui.exe" }
 )
