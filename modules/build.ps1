@@ -79,17 +79,17 @@ if ($controls["PrefsPanel1"] -and $controls["PrefsPanel2"] -and $controls["Prefs
         $hasRegistryOn = $pref.PSObject.Properties.Name -contains "registry_on" -and $pref.registry_on -and $pref.registry_on.Count -gt 0
         if ($hasRegistryOn) {
             $firstReg = $pref.registry_on[0]
-            if (Test-Path $firstReg.path) { try { $currentState = (Get-ItemProperty $firstReg.path -Name $firstReg.name -ErrorAction SilentlyContinue).$($firstReg.name) } catch {} }
+            if (Test-Path $firstReg.path) { try { $currentState = (Get-ItemProperty $firstReg.path -Name $firstReg.name -ErrorAction SilentlyContinue).$($firstReg.name) } catch { Write-Log "Registry read failed: $_" "Warn" } }
         }
         $cb.IsChecked = if ($hasRegistryOn) { $currentState -eq $pref.registry_on[0].value } else { $false }
         $cb.Add_Checked({
             $pk = $this.Tag; $p = $prefsConfig.$pk
-            if ($p.PSObject.Properties.Name -contains "registry_on") { foreach ($r in $p.registry_on) { try { if (!(Test-Path $r.path)) { New-Item $r.path -Force | Out-Null }; $t = if ($r.type) { $r.type } else { "String" }; Set-ItemProperty $r.path -Name $r.name -Value $r.value -Type $t -Force } catch {} } }
+            if ($p.PSObject.Properties.Name -contains "registry_on") { foreach ($r in $p.registry_on) { try { if (!(Test-Path $r.path)) { New-Item $r.path -Force | Out-Null }; $t = if ($r.type) { $r.type } else { "String" }; Set-ItemProperty $r.path -Name $r.name -Value $r.value -Type $t -Force } catch { Write-Log "Registry write failed: $($r.path) $($r.name)" "Warn" } } }
             Write-Log "Pref ON: $($p.content)" "Success"
         })
         $cb.Add_Unchecked({
             $pk = $this.Tag; $p = $prefsConfig.$pk
-            if ($p.PSObject.Properties.Name -contains "registry_off") { foreach ($r in $p.registry_off) { try { if (!(Test-Path $r.path)) { New-Item $r.path -Force | Out-Null }; $t = if ($r.type) { $r.type } else { "String" }; Set-ItemProperty $r.path -Name $r.name -Value $r.value -Type $t -Force } catch {} } }
+            if ($p.PSObject.Properties.Name -contains "registry_off") { foreach ($r in $p.registry_off) { try { if (!(Test-Path $r.path)) { New-Item $r.path -Force | Out-Null }; $t = if ($r.type) { $r.type } else { "String" }; Set-ItemProperty $r.path -Name $r.name -Value $r.value -Type $t -Force } catch { Write-Log "Registry write failed: $($r.path) $($r.name)" "Warn" } } }
             Write-Log "Pref OFF: $($p.content)" "Warn"
         })
         $prefPanels[$panelIndex].Children.Add($cb) | Out-Null
@@ -181,7 +181,12 @@ if ($controls["LegacyPanel1"] -and $controls["LegacyPanel2"] -and $controls["Leg
         $sp.Children.Add($textSp) | Out-Null; $btn.Content = $sp
         $btn.Add_Click({
             $cmd = $this.Tag; Write-Log "Launching: $cmd" "Info"
-            try { Start-Process $cmd -ErrorAction Stop; Write-Log "Launched: $cmd" "Success" } catch { Write-Log "Failed to launch ${cmd}: $_" "Error"; Show-Info "Error" "Failed to launch $cmd`n`n$_" }
+            try {
+                $parts = $cmd -split ' ', 2
+                $exe = $parts[0]; $args = if ($parts.Count -gt 1) { $parts[1] } else { $null }
+                if ($args) { Start-Process $exe -ArgumentList $args -ErrorAction Stop } else { Start-Process $exe -ErrorAction Stop }
+                Write-Log "Launched: $cmd" "Success"
+            } catch { Write-Log "Failed to launch ${cmd}: $_" "Error"; Show-Info "Error" "Failed to launch $cmd`n`n$_" }
         })
         $legacyPanelsArr[$panelIndex].Children.Add($btn) | Out-Null
         $panelIndex = ($panelIndex + 1) % 3

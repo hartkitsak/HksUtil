@@ -8,7 +8,6 @@ $sync.selectedTweaks = [System.Collections.Generic.List[string]]::new()
 $sync.selectedFeatures = [System.Collections.Generic.List[string]]::new()
 $sync.currentTab = "Install"
 
-$script:importInProgress = $false
 $script:logLines = [System.Collections.Generic.List[string]]::new()
 
 function Get-WpfResource { param($Key) try { $window.FindResource($Key) } catch { Write-Log "Missing style: $Key" "Warn"; $null } }
@@ -84,18 +83,3 @@ function Update-InstalledCache {
     Write-Log "Installed cache: $($script:installedAppIds.Count) apps" "Success"
 }
 
-function Invoke-HksUtilHeadless {
-    param([string]$ConfigPath, [switch]$Apply)
-    if (-not $ConfigPath -or -not $Apply) { Write-Log "Headless: use -Config <path> -Apply" "Warn"; return }
-    try {
-        $json = Get-Content $ConfigPath -Raw -Encoding UTF8 | ConvertFrom-Json
-        if ($json.AppSelections) {
-            Ensure-PackageManager "winget" | Out-Null
-            foreach ($id in $json.AppSelections) {
-                Write-Log "Install: $id" "Info"
-                winget install --id=$id --silent --accept-package-agreements --accept-source-agreements 2>&1 | Out-Null
-            }
-        }
-        Write-Log "Headless: done." "Success"
-    } catch { Write-Log "Headless failed: $_" "Error" }
-}

@@ -1,4 +1,4 @@
-if ($controls["BtnRunFeatures"]) {
+if ($controls["BtnRunFeatures"] -and $featuresConfig -and $featuresConfig.PSObject.Properties.Name -contains "Features") {
     $controls["BtnRunFeatures"].Add_Click({
         $selected = $featuresCheckboxes | Where-Object { $_.IsChecked -eq $true }
         if ($selected.Count -eq 0) { Write-Log "No features selected." "Warn"; return }

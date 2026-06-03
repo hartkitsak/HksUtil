@@ -3,8 +3,8 @@ $script:navButtons = @{}
 $script:navNames = @("Install", "Tweaks", "Features", "Preferences", "Legacy", "Settings")
 
 foreach ($n in $navNames) {
-    $pages[$n] = $controls["Page$n"]
-    $navButtons[$n] = $controls["Nav$n"]
+    if ($controls["Page$n"]) { $pages[$n] = $controls["Page$n"] }
+    if ($controls["Nav$n"]) { $navButtons[$n] = $controls["Nav$n"] }
 }
 
 function Show-NavPanel {

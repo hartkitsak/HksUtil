@@ -13,7 +13,7 @@ function Apply-Filters {
             $content = if ($cb.Content -ne $null) { $cb.Content.ToString().ToLower() } else { "" }
             $isVisible = $isVisible -and ($text.Contains($filter) -or $content.Contains($filter))
         }
-        try { $cb.Visibility = if ($isVisible) { "Visible" } else { "Collapsed" } } catch {}
+        try { $cb.Visibility = if ($isVisible) { "Visible" } else { "Collapsed" } } catch { Write-Log "Filter visibility failed: $_" "Warn" }
     }
     foreach ($panelName in @("TweaksPanel1","TweaksPanel2","TweaksPanel3")) {
         if (-not $controls[$panelName]) { continue }
@@ -25,7 +25,7 @@ function Apply-Filters {
                 $content = if ($cb.Content -ne $null) { $cb.Content.ToString().ToLower() } else { "" }
                 $isVisible = $isVisible -and ($text.Contains($filter) -or $content.Contains($filter))
             }
-            try { $cb.Visibility = if ($isVisible) { "Visible" } else { "Collapsed" } } catch {}
+            try { $cb.Visibility = if ($isVisible) { "Visible" } else { "Collapsed" } } catch { Write-Log "Filter visibility failed: $_" "Warn" }
         }
     }
     if ($controls["SearchHint"]) { $controls["SearchHint"].Visibility = if ($filter) { "Collapsed" } else { "Visible" } }

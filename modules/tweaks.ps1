@@ -9,7 +9,7 @@ function Save-OriginalValues {
         foreach ($reg in $tweak.registry) {
             $currentValue = $null
             if (Test-Path $reg.path) {
-                try { $currentValue = (Get-ItemProperty $reg.path -Name $reg.name -ErrorAction SilentlyContinue).$($reg.name) } catch {}
+                try { $currentValue = (Get-ItemProperty $reg.path -Name $reg.name -ErrorAction SilentlyContinue).$($reg.name) } catch { Write-Log "Registry read failed for undo: $_" "Warn" }
             }
             $undoEntry.Registry += @{ Path = $reg.path; Name = $reg.name; OriginalValue = $currentValue; Type = $reg.type }
         }
@@ -21,7 +21,7 @@ function Save-OriginalValues {
                 if ($svcObj) {
                     $undoEntry.Services += @{ Name = $svc.name; OriginalStatus = $svcObj.Status; OriginalStartup = (Get-CimInstance Win32_Service -Filter "Name='$($svc.name)'" -ErrorAction SilentlyContinue).StartMode }
                 }
-            } catch {}
+                } catch { Write-Log "Service capture failed: $_" "Warn" }
         }
     }
     if ($tweak.PSObject.Properties.Name -contains "undoScript") { $undoEntry.Scripts += $tweak.undoScript }

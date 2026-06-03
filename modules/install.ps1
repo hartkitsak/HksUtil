@@ -78,10 +78,10 @@ if ($controls["BtnUninstall"]) {
                 Write-Log "Deep Cleaning $id..." "Info"; Set-Status "Cleaning $id leftovers..."
                 foreach ($term in ($id -split '\.') | Where-Object { $_.Length -gt 4 }) {
                     foreach ($basePath in @($env:APPDATA, $env:LOCALAPPDATA, $env:PROGRAMDATA)) {
-                        Get-ChildItem -Path $basePath -Directory -Filter "*$term*" -ErrorAction SilentlyContinue | ForEach-Object { try { Remove-Item $_.FullName -Recurse -Force; Write-Log "Deleted: $($_.FullName)" "Success" } catch {} }
+                        Get-ChildItem -Path $basePath -Directory -Filter "*$term*" -ErrorAction SilentlyContinue | ForEach-Object { try { Remove-Item $_.FullName -Recurse -Force; Write-Log "Deleted: $($_.FullName)" "Success" } catch { Write-Log "Cleanup dir failed: $($_.FullName)" "Warn" } }
                     }
                     foreach ($regPath in @("HKCU:\Software", "HKLM:\SOFTWARE\WOW6432Node")) {
-                        if (Test-Path $regPath) { Get-ChildItem -Path $regPath -ErrorAction SilentlyContinue | Where-Object { $_.Name.Contains($term) } | ForEach-Object { try { Remove-Item $_.PSPath -Recurse -Force; Write-Log "Deleted Reg: $($_.Name)" "Success" } catch {} } }
+                        if (Test-Path $regPath) { Get-ChildItem -Path $regPath -ErrorAction SilentlyContinue | Where-Object { $_.Name.Contains($term) } | ForEach-Object { try { Remove-Item $_.PSPath -Recurse -Force; Write-Log "Deleted Reg: $($_.Name)" "Success" } catch { Write-Log "Cleanup reg failed: $($_.Name)" "Warn" } } }
                     }
                 }
             }

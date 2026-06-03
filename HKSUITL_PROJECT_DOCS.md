@@ -49,7 +49,7 @@ HksUtil/
 ├── modules/                   # 13 PowerShell modules
 │   ├── logger.ps1             # Write-Log, Show-HksUtilLogo, Show-Confirm, Show-Info, Set-Status
 │   ├── core.ps1               # $sync hashtable, Invoke-WPFUIThread, Show/Hide-Progress, Set-ProgressTaskbar,
-│   │                          # Update-InstalledCache, Ensure-PackageManager, Invoke-HksUtilHeadless,
+│   │                          # Update-InstalledCache, Ensure-PackageManager, Get-WpfResource,
 │   │                          # $script:logLines initialization
 │   ├── theme.ps1              # Apply-Theme via config.json → BrushConverter (no XAML ResourceDictionary)
 │   ├── navigation.ps1         # Switch-Page, nav button wiring, keyboard handler
@@ -80,14 +80,14 @@ HksUtil/
 
 1. Assert Admin → if not, relaunch via `Start-Process -Verb RunAs` then `exit`
 2. Load WPF assemblies
-3. Set `$script:appRoot = $PSScriptRoot`
-4. Parse `-Noui`, `-Config <path>`, `-Apply`, `-Export` parameters
-5. Load `config/config.json` → split into `$script:cfg` (raw), `$script:appsConfig`, `$script:tweaksConfig`, etc.
-6. **GUI mode**: Load `xaml/ui.xaml` → XamlReader → build `$controls` hashtable
-7. Dot-source all 13 modules from `modules/` (order: logger → core → theme → navigation → tweaks → search → toolbar → dns → terminal → utility → build → install → features)
-8. Apply theme (default "dark")
-9. Show initial page: "Install"
-10. **NoUI mode**: Skip XAML, call `Invoke-HksUtilHeadless` with config path
+3.  Set `$script:appRoot = $PSScriptRoot`
+4.  Parse `-Noui`, `-Config <path>`, `-Apply`, `-Export` parameters
+5.  Load `config/config.json` → split into `$script:cfg` (raw), `$script:appsConfig`, `$script:tweaksConfig`, etc.
+6.  **GUI mode**: Load `xaml/ui.xaml` → XamlReader → build `$controls` hashtable
+7.  Dot-source all 13 modules from `modules/` (order: logger → core → theme → navigation → tweaks → search → toolbar → dns → terminal → utility → build → install → features)
+8.  Apply theme (default "dark")
+9.  Show initial page: "Install"
+10. **NoUI mode**: Skip XAML, inline headless install logic (config → batch queue)
 
 ### 3.2 Window Configuration
 
@@ -337,7 +337,7 @@ Each: `{ description, ipv4: [2], ipv6: [2] }`
 | `Set-ProgressTaskbar` | core.ps1 | Taskbar progress state |
 | `Update-InstalledCache` | core.ps1 | Run `winget list`, parse installed app IDs |
 | `Ensure-PackageManager` | core.ps1 | Auto-install WinGet/Choco if missing |
-| `Invoke-HksUtilHeadless` | core.ps1 | NoUI entry point: load config → batch install |
+| `Get-WpfResource` | core.ps1 | Safe `$window.FindResource()` with try/catch, returns null on miss |
 | `Apply-Theme` | theme.ps1 | Read config.json themes → BrushConverter → set Resources |
 | `Switch-Page` | navigation.ps1 | Show one page, update nav button styles |
 | `Save-OriginalValues` | tweaks.ps1 | Backup service startup + registry before tweak |
@@ -387,6 +387,11 @@ Each: `{ description, ipv4: [2], ipv6: [2] }`
 9. **`$script:config`** must NOT be used as variable name — collides with `[string]$Config` parameter. Use `$script:cfg`.
 
 10. **`Win32_Service.StartMode`** returns `"Auto"` for Automatic services; `Set-Service -StartupType` requires `"Automatic"`. Map before calling.
+11. **COM objects** (`WScript.Shell`) must be released with `[Runtime.InteropServices.Marshal]::ReleaseComObject()` in `finally` block.
+12. **`OpenFileDialog`** must be disposed via `try/finally` pattern to avoid resource leaks.
+13. **`Start-Process`** with multi-word command (e.g. `"control printers"`) must split into `-FilePath` and `-ArgumentList`.
+14. **`$controls["BtnToolbarSettings"]`** may be `$null` if the settings toggle button is absent — always guard before `.IsChecked = $false`.
+15. **`$null -eq $_.Value`** check preferred over truthy `$_.Value` for arg builder — `$false` or `0` are valid non-null values.
 
 ### Bugs Found & Fixed
 
@@ -400,12 +405,18 @@ Each: `{ description, ipv4: [2], ipv6: [2] }`
 | 6 | `Write-Log "Cmd"` type unhandled | logger.ps1 | Added `"Cmd" → ">"` with Cyan |
 | 7 | Service undo uses `"Auto"` but `Set-Service` needs `"Automatic"` | tweaks.ps1:79 | Added mapping |
 | 8 | `BtnGetInstalled` removed from XAML + handler | xaml/ui.ps1 | Removed stale binding |
+| 9 | `[bool]` cast inverts logic (`[bool]"false"` → $true) | app.ps1, Compile.ps1 | Changed to `-eq $true` |
+| 10 | `Set-ItemProperty` missing `-Type` parameter | build.ps1 | Added `$t` fallback to `"String"` |
+| 11 | `FindResource` unguarded (8 calls) | dns.ps1, build.ps1 | Created `Get-WpfResource` helper in core.ps1 |
+| 12 | `logLines` never populated by Write-Log | logger.ps1, core.ps1 | Write-Log appends; init moved to module-level |
+| 13 | SearchBox null access in BtnClearSearch | app.ps1 | Added `if ($controls["SearchBox"])` guard |
+| 14 | ChkShowInstalled wired twice | search.ps1 | Removed from search.ps1, kept in app.ps1 |
+| 15 | `$controls` null in compiled script | Compile.ps1 | `$controls = @{}` injected before module embed |
 
-### 47 Code Audit Issues (All Fixed)
+### 47 → 72 Code Audit Issues (All Fixed)
 
-- 11 HIGH: Show-Progress named params, registry `-Type`, deep clean guard, null control guards, `$sync.PSScriptRoot` removed, anchored regex cache, `Apply-Filters` null Tag guard, confirmation before execution, `-Encoding UTF8` on all `Get-Content`, `$reader.Close()` disposal
-- 24 MEDIUM: Typed enum for dispatcher, `ConvertTo-Json -Depth 5`, `$script:importInProgress` flag, null `$controls` filtered, `$scriptCmd` else branch, various guard clauses
-- 12 LOW: `$script:tableHeaderPrinted` removed, minor formatting
+- **HIGH (15):** Show-Progress named params, registry `-Type`, deep clean guard, null control guards, `$sync.PSScriptRoot` removed, anchored regex cache, `Apply-Filters` null Tag guard, confirmation before execution, `-Encoding UTF8` on all `Get-Content`, `$reader.Close()` disposal, TerminalInput missing from XAML, [bool] cast invert, Set-ItemProperty -Type, FindResource unguarded, logLines never populated, SearchBox null, ChkShowInstalled double-wire, $controls null
+- **MEDIUM + LOW (57):** empty catch → Write-Log (8 spots), Relaunch arg builder null check, Features section guard, navigation null guard (pages/navButtons), BtnToolbarSettings guard (5 spots), OpenFileDialog dispose, COM release, pwsh fallback, Start-Process multi-word split, dead code removed (importInProgress, Invoke-HksUtilHeadless), typed enum, ConvertTo-Json -Depth 5, null `$controls` filtered, `$scriptCmd` else branch, file header removal, formatting cleanup
 
 ---
 
@@ -472,3 +483,4 @@ Two workflows in `.github/workflows/`:
 | 1.x | — | Monolithic app.ps1 (1135 lines), 6 separate JSON configs, XAML theme files |
 | 2.0 | 2026 | 14-file modular split, unified config.json, 32 Pester tests, NoUI mode, JSON-based theming, System Restore, 47 code audit fixes, 8 bug fixes |
 | 2.1 | 2026 | LICENSE file, .github/ISSUE_TEMPLATE, .github/workflows (CI/CD), lint/PSScriptAnalyser.ps1, Compile.ps1 build system, 16 Legacy panels |
+| 2.2 | 2026 | All 8 HIGH + 14 MEDIUM + 12 LOW bugs fixed. empty catch → Write-Log, COM release, pwsh fallback, Start-Process multi-word split, dead code removal, navigation null guards, toolbar settings guards, OpenFileDialog dispose, Relaunch arg builder fix, Features section guard |
