@@ -1,3 +1,10 @@
+<#
+.NOTES
+    Author  : hartkitsak
+    GitHub  : https://github.com/hartkitsak/HksUtil
+    Version : development — run .\scripts\Compile.ps1 to build hksutil.ps1
+#>
+
 param(
     [string]$Config,
     [switch]$Noui,
@@ -7,13 +14,18 @@ param(
     [switch]$Verbose
 )
 
+if ($ExecutionContext.SessionState.LanguageMode -ne 'FullLanguage') {
+    Write-Host "HksUtil requires FullLanguage mode. Current: $($ExecutionContext.SessionState.LanguageMode)" -ForegroundColor Red
+    pause; exit
+}
+
 Add-Type -AssemblyName PresentationFramework
 Add-Type -AssemblyName PresentationCore
 Add-Type -AssemblyName WindowsBase
 
 $isAdmin = ([Security.Principal.WindowsPrincipal][Security.Principal.WindowsIdentity]::GetCurrent()).IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)
 if (-not $isAdmin) {
-    write-host "HksUtil needs to be run as Administrator. Attempting to relaunch."
+    Write-Host "HksUtil needs to be run as Administrator. Attempting to relaunch."
     $argList = @()
     $PSBoundParameters.GetEnumerator() | ForEach-Object {
         $argList += if ($_.Value -is [switch] -and $_.Value) { "-$($_.Key)" }
@@ -26,15 +38,37 @@ if (-not $isAdmin) {
         "& { & '$(Join-Path $PSScriptRoot app.ps1)' $($argList -join ' ') }"
     }
     $powershellCmd = if (Get-Command pwsh -ErrorAction SilentlyContinue) { "pwsh" } else { "powershell.exe" }
-    Start-Process $powershellCmd -ArgumentList "-NoProfile -ExecutionPolicy Bypass -Command `"$scriptCmd`"" -Verb RunAs
+    $processCmd = if (Get-Command wt.exe -ErrorAction SilentlyContinue) { "wt.exe" } else { "$powershellCmd" }
+    if ($processCmd -eq "wt.exe") {
+        Start-Process $processCmd -ArgumentList "$powershellCmd -ExecutionPolicy Bypass -NoProfile -Command `"$scriptCmd`"" -Verb RunAs
+    } else {
+        Start-Process $powershellCmd -ArgumentList "-ExecutionPolicy Bypass -NoProfile -Command `"$scriptCmd`"" -Verb RunAs
+    }
     exit
 }
 
+$sync = [Hashtable]::Synchronized(@{})
+$sync.version = Get-Date -Format 'yy.MM.dd'
+$sync.noUI = $Noui
+$sync.configs = @{}
+$sync.controls = @{}
+$sync.ProcessRunning = $false
+$sync.selectedApps = [System.Collections.Generic.List[string]]::new()
+$sync.selectedTweaks = [System.Collections.Generic.List[string]]::new()
+$sync.selectedFeatures = [System.Collections.Generic.List[string]]::new()
+
+$maxthreads = [int]$env:NUMBER_OF_PROCESSORS
+$hashVars = New-Object System.Management.Automation.Runspaces.SessionStateVariableEntry -ArgumentList 'sync', $sync, $null
+$initialState = [System.Management.Automation.Runspaces.InitialSessionState]::CreateDefault()
+$initialState.Variables.Add($hashVars)
+$sync.runspace = [runspacefactory]::CreateRunspacePool(1, $maxthreads, $initialState, $Host)
+$sync.runspace.Open()
+
+$script:logLevel = "Success"
+if ($Verbose) { $script:logLevel = "Info" }
 $script:appRoot = $PSScriptRoot
-$script:NoUI = $Noui
 
 . "$PSScriptRoot\modules\logger.ps1"
-if ($Verbose) { $script:logLevel = "Info" }
 . "$PSScriptRoot\modules\core.ps1"
 . "$PSScriptRoot\modules\theme.ps1"
 
@@ -43,13 +77,12 @@ Show-HksUtilLogo
 $configPath = Join-Path $PSScriptRoot "config"
 Write-Log "Loading configs..." "Info"
 
-try { $script:metaConfig = Get-Content (Join-Path $configPath "meta.json") -Raw -Encoding UTF8 | ConvertFrom-Json } catch { $script:metaConfig = @{}; Write-Log "meta.json failed: $_" "Warn" }
-try { $script:themesConfig = Get-Content (Join-Path $configPath "themes.json") -Raw -Encoding UTF8 | ConvertFrom-Json } catch { $script:themesConfig = @{}; Write-Log "themes.json failed: $_" "Warn" }
-try { $script:appsConfig = Get-Content (Join-Path $configPath "apps.json") -Raw -Encoding UTF8 | ConvertFrom-Json } catch { $script:appsConfig = @{}; Write-Log "apps.json failed: $_" "Warn" }
-try { $script:tweaksConfig = Get-Content (Join-Path $configPath "tweaks.json") -Raw -Encoding UTF8 | ConvertFrom-Json } catch { $script:tweaksConfig = @{}; Write-Log "tweaks.json failed: $_" "Warn" }
-try { $script:dnsConfig = Get-Content (Join-Path $configPath "dns.json") -Raw -Encoding UTF8 | ConvertFrom-Json } catch { $script:dnsConfig = @{}; Write-Log "dns.json failed: $_" "Warn" }
-try { $script:prefsConfig = Get-Content (Join-Path $configPath "preferences.json") -Raw -Encoding UTF8 | ConvertFrom-Json } catch { $script:prefsConfig = @{}; Write-Log "preferences.json failed: $_" "Warn" }
-try { $script:featuresConfig = Get-Content (Join-Path $configPath "features.json") -Raw -Encoding UTF8 | ConvertFrom-Json } catch { $script:featuresConfig = @{}; Write-Log "features.json failed: $_" "Warn" }
+try { $sync.configs.themes = Get-Content (Join-Path $configPath "themes.json") -Raw -Encoding UTF8 | ConvertFrom-Json } catch { $sync.configs.themes = @{}; Write-Log "themes.json failed: $_" "Warn" }
+try { $sync.configs.apps = Get-Content (Join-Path $configPath "apps.json") -Raw -Encoding UTF8 | ConvertFrom-Json } catch { $sync.configs.apps = @{}; Write-Log "apps.json failed: $_" "Warn" }
+try { $sync.configs.tweaks = Get-Content (Join-Path $configPath "tweaks.json") -Raw -Encoding UTF8 | ConvertFrom-Json } catch { $sync.configs.tweaks = @{}; Write-Log "tweaks.json failed: $_" "Warn" }
+try { $sync.configs.dns = Get-Content (Join-Path $configPath "dns.json") -Raw -Encoding UTF8 | ConvertFrom-Json } catch { $sync.configs.dns = @{}; Write-Log "dns.json failed: $_" "Warn" }
+try { $sync.configs.preferences = Get-Content (Join-Path $configPath "preferences.json") -Raw -Encoding UTF8 | ConvertFrom-Json } catch { $sync.configs.preferences = @{}; Write-Log "preferences.json failed: $_" "Warn" }
+try { $sync.configs.features = Get-Content (Join-Path $configPath "features.json") -Raw -Encoding UTF8 | ConvertFrom-Json } catch { $sync.configs.features = @{}; Write-Log "features.json failed: $_" "Warn" }
 Write-Log "Config files loaded." "Success"
 
 if ($Export) {
@@ -61,24 +94,24 @@ if ($Export) {
     } catch { Write-Log "Export failed: $_" "Error" }
 }
 
-if ($NoUI) {
+if ($sync.noUI) {
     if ($Config -and $Apply) {
         Write-Log "NoUI mode: applying config..." "Header"
         try {
             if ($Config -match "^https?://") { $importJson = Invoke-WebRequest -Uri $Config -UseBasicParsing | Select-Object -ExpandProperty Content | ConvertFrom-Json }
             else { $importJson = Get-Content $Config -Raw -Encoding UTF8 | ConvertFrom-Json }
             if ($importJson.AppSelections) {
-                    Ensure-PackageManager "winget" | Out-Null
-                    foreach ($id in $importJson.AppSelections) {
-                        Write-Log "Headless install: $id" "Info"
-                        winget install --id=$id --silent --accept-package-agreements --accept-source-agreements 2>&1 | Out-Null
-                    }
+                Ensure-PackageManager "winget" | Out-Null
+                foreach ($id in $importJson.AppSelections) {
+                    Write-Log "Headless install: $id" "Info"
+                    winget install --id=$id --silent --accept-package-agreements --accept-source-agreements 2>&1 | Out-Null
                 }
+            }
             Write-Log "Headless apply complete." "Success"
         } catch { Write-Log "Headless apply failed: $_" "Error" }
     } else { Write-Log "NoUI mode: use -Config <path> -Apply to apply." "Warn" }
-    pause
-    exit
+    $sync.runspace.Dispose(); $sync.runspace.Close()
+    pause; exit
 }
 
 try {
@@ -87,16 +120,16 @@ try {
     $xamlContent = $xamlContent -replace 'x:Name="([^"]+)"', 'Name="$1"'
     [xml]$xaml = $xamlContent
     $reader = New-Object System.Xml.XmlNodeReader $xaml
-    $window = [Windows.Markup.XamlReader]::Load($reader)
+    $sync.window = [Windows.Markup.XamlReader]::Load($reader)
     $reader.Close()
 } catch { Write-Log "FATAL ERROR loading UI: $_" "Error"; pause; exit }
 
-$controls = @{}
-$xaml.SelectNodes("//*[@Name]") | ForEach-Object { $controls[$_.Name] = $window.FindName($_.Name) }
-foreach ($k in @($controls.Keys)) { if (-not $controls[$k]) { $controls.Remove($k) } }
+$sync.controls = @{}
+$xaml.SelectNodes("//*[@Name]") | ForEach-Object { $sync.controls[$_.Name] = $sync.window.FindName($_.Name) }
+foreach ($k in @($sync.controls.Keys)) { if (-not $sync.controls[$k]) { $sync.controls.Remove($k) } }
 
 Apply-Theme "dark"
-if ($controls["TitleText"]) { $controls["TitleText"].Add_MouseLeftButtonDown({ $window.DragMove() }) }
+if ($sync.controls["TitleText"]) { $sync.controls["TitleText"].Add_MouseLeftButtonDown({ $sync.window.DragMove() }) }
 
 . "$PSScriptRoot\modules\navigation.ps1"
 . "$PSScriptRoot\modules\tweaks.ps1"
@@ -109,30 +142,28 @@ if ($controls["TitleText"]) { $controls["TitleText"].Add_MouseLeftButtonDown({ $
 . "$PSScriptRoot\modules\install.ps1"
 . "$PSScriptRoot\modules\features.ps1"
 
-if ($controls["BtnClearSearch"]) { $controls["BtnClearSearch"].Add_Click({ if ($controls["SearchBox"]) { $controls["SearchBox"].Text = ""; $controls["SearchBox"].Focus() } }) }
-if ($controls["BtnSelectAll"]) { $controls["BtnSelectAll"].Add_Click({ foreach ($cb in $appCheckboxes) { if ($cb.Visibility -eq "Visible") { $cb.IsChecked = $true } }; Update-SelectedCount; Write-Log "All visible apps selected." "Info" }) }
-if ($controls["BtnClearSelection"]) { $controls["BtnClearSelection"].Add_Click({ foreach ($cb in $appCheckboxes) { $cb.IsChecked = $false }; Update-SelectedCount; Write-Log "Selection cleared." "Info" }) }
-if ($controls["BtnCollapseAll"]) {
-    $controls["BtnCollapseAll"].Add_Click({
+if ($sync.controls["BtnClearSearch"]) { $sync.controls["BtnClearSearch"].Add_Click({ if ($sync.controls["SearchBox"]) { $sync.controls["SearchBox"].Text = ""; $sync.controls["SearchBox"].Focus() } }) }
+if ($sync.controls["BtnSelectAll"]) { $sync.controls["BtnSelectAll"].Add_Click({ foreach ($cb in $appCheckboxes) { if ($cb.Visibility -eq "Visible") { $cb.IsChecked = $true } }; Update-SelectedCount; Write-Log "All visible apps selected." "Info" }) }
+if ($sync.controls["BtnClearSelection"]) { $sync.controls["BtnClearSelection"].Add_Click({ foreach ($cb in $appCheckboxes) { $cb.IsChecked = $false }; Update-SelectedCount; Write-Log "Selection cleared." "Info" }) }
+if ($sync.controls["BtnCollapseAll"]) {
+    $sync.controls["BtnCollapseAll"].Add_Click({
         foreach ($cat in $script:categoryItems.Keys) { $script:categoryCollapsed[$cat] = $true; foreach ($item in $script:categoryItems[$cat]) { $item.Visibility = "Collapsed" } }
         foreach ($panel in @($appPanels)) { foreach ($child in $panel.Children) { if ($child -is [System.Windows.Controls.TextBlock] -and $script:categoryItems.ContainsKey($child.Tag)) { $child.Text = "+ $($child.Tag.ToUpper()) ($($script:categoryItems[$child.Tag].Count))" } } }
-        Write-Log "All categories collapsed." "Info"
     })
 }
-if ($controls["BtnExpandAll"]) {
-    $controls["BtnExpandAll"].Add_Click({
+if ($sync.controls["BtnExpandAll"]) {
+    $sync.controls["BtnExpandAll"].Add_Click({
         foreach ($cat in $script:categoryItems.Keys) { $script:categoryCollapsed[$cat] = $false; foreach ($item in $script:categoryItems[$cat]) { $item.Visibility = "Visible" } }
         foreach ($panel in @($appPanels)) { foreach ($child in $panel.Children) { if ($child -is [System.Windows.Controls.TextBlock] -and $script:categoryItems.ContainsKey($child.Tag)) { $child.Text = "- $($child.Tag.ToUpper()) ($($script:categoryItems[$child.Tag].Count))" } } }
-        Write-Log "All categories expanded." "Info"
     })
 }
-if ($controls["ChkShowInstalled"]) {
-    $controls["ChkShowInstalled"].Add_Checked({
+if ($sync.controls["ChkShowInstalled"]) {
+    $sync.controls["ChkShowInstalled"].Add_Checked({
         Write-Log "Filtering to installed apps..." "Info"
         if ($script:installedAppIds.Count -eq 0) { Update-InstalledCache }
         Apply-Filters
     })
-    $controls["ChkShowInstalled"].Add_Unchecked({ Apply-Filters })
+    $sync.controls["ChkShowInstalled"].Add_Unchecked({ Apply-Filters })
 }
 
 Switch-Page "Install"
@@ -147,22 +178,22 @@ if ($Config -and -not $Apply) {
         elseif (Test-Path $Config) { $importJson = Get-Content $Config -Raw -Encoding UTF8 | ConvertFrom-Json }
         else { Write-Log "Config path not found: $Config" "Warn"; $importJson = $null }
         if ($importJson) {
-            # NEW format: AppSelections (array of winget IDs)
             if ($importJson.AppSelections) { foreach ($cb in $appCheckboxes) { $cb.IsChecked = @($importJson.AppSelections) -contains $cb.Tag } }
-            # OLD format: CheckedApps (array of {Name, Content})
             if ($importJson.CheckedApps) { foreach ($appEntry in $importJson.CheckedApps) { $cb = $appCheckboxes | Where-Object { $_.Tag -eq $appEntry.Name }; if ($cb) { $cb.IsChecked = $true } } }
-
             if ($importJson.TweakSelections) { foreach ($cb in $tweakCheckboxes) { $cb.IsChecked = @($importJson.TweakSelections) -contains $cb.Tag } }
             if ($importJson.CheckedTweaks) { foreach ($tweakEntry in $importJson.CheckedTweaks) { $cb = $tweakCheckboxes | Where-Object { $_.Tag -eq $tweakEntry.Name }; if ($cb) { $cb.IsChecked = $true } } }
-
             if ($importJson.FeatureSelections) { foreach ($cb in $featuresCheckboxes) { $cb.IsChecked = @($importJson.FeatureSelections) -contains $cb.Tag } }
-
             if ($importJson.PreferenceStates) { foreach ($pk in $importJson.PreferenceStates.PSObject.Properties.Name) { if ($prefCheckboxes[$pk]) { $prefCheckboxes[$pk].IsChecked = $importJson.PreferenceStates.$pk -eq $true } } }
-
             Update-SelectedCount; Write-Log "Config loaded from $Config" "Success"
         }
     } catch { Write-Log "Config load failed: $_" "Error" }
 }
 
-try { $window.ShowDialog() | Out-Null } catch { Write-Log "UI Runtime Error: $_" "Error"; pause }
+$sync.window.Add_Closing({
+    $sync.runspace.Dispose()
+    $sync.runspace.Close()
+    [System.GC]::Collect()
+})
+
+try { $sync.window.ShowDialog() | Out-Null } catch { Write-Log "UI Runtime Error: $_" "Error"; pause }
 Write-Log "HksUtil Closed." "Header"

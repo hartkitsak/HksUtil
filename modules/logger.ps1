@@ -1,4 +1,4 @@
-$script:logLevel = "Success"
+if (-not $sync.ContainsKey('logLevel')) { $sync.logLevel = "Success" }
 
 function Show-HksUtilLogo {
     Write-Host @"
@@ -36,7 +36,7 @@ function Write-Log {
         "Cmd"     { "Cyan" }
     }
     if ($script:logLines) { $script:logLines.Add("$level $Message") }
-    if ($Type -eq "Info" -and $script:logLevel -ne "Info") { return }
+    if ($Type -eq "Info" -and $sync.logLevel -ne "Info") { return }
     Write-Host ("  {0,-5} {1}" -f $level, $Message) -ForegroundColor $color
 }
 
@@ -53,10 +53,10 @@ function Show-Info {
 
 function Set-Status {
     param([string]$Text)
-    if ($controls["StatusText"]) { $controls["StatusText"].Text = $Text }
+    if ($sync.controls["StatusText"]) { $sync.controls["StatusText"].Text = $Text }
 }
 
 function Update-SelectedCount {
     $count = ($appCheckboxes | Where-Object { $_.IsChecked -eq $true }).Count
-    if ($controls["LblSelectedCount"]) { $controls["LblSelectedCount"].Text = "Selected Apps: $count" }
+    if ($sync.controls["LblSelectedCount"]) { $sync.controls["LblSelectedCount"].Text = "Selected Apps: $count" }
 }

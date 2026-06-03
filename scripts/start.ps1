@@ -14,6 +14,11 @@ param(
     [switch]$Verbose
 )
 
+if ($ExecutionContext.SessionState.LanguageMode -ne 'FullLanguage') {
+    Write-Host "HksUtil requires FullLanguage mode. Current: $($ExecutionContext.SessionState.LanguageMode)" -ForegroundColor Red
+    pause; exit
+}
+
 Add-Type -AssemblyName PresentationFramework
 Add-Type -AssemblyName PresentationCore
 Add-Type -AssemblyName WindowsBase
@@ -33,9 +38,28 @@ if (-not $isAdmin) {
         "& { & '$(Split-Path $MyInvocation.MyCommand.Path -Parent)\hksutil.ps1' $($argList -join ' ') }"
     }
     $powershellCmd = if (Get-Command pwsh -ErrorAction SilentlyContinue) { "pwsh" } else { "powershell.exe" }
-    Start-Process $powershellCmd -ArgumentList "-NoProfile -ExecutionPolicy Bypass -Command `"$scriptCmd`"" -Verb RunAs
+    $processCmd = if (Get-Command wt.exe -ErrorAction SilentlyContinue) { "wt.exe" } else { "$powershellCmd" }
+    if ($processCmd -eq "wt.exe") {
+        Start-Process $processCmd -ArgumentList "$powershellCmd -ExecutionPolicy Bypass -NoProfile -Command `"$scriptCmd`"" -Verb RunAs
+    } else {
+        Start-Process $powershellCmd -ArgumentList "-ExecutionPolicy Bypass -NoProfile -Command `"$scriptCmd`"" -Verb RunAs
+    }
     exit
 }
 
-$script:hksVersion = "#{replaceme}"
-$script:NoUI = $Noui
+$sync = [Hashtable]::Synchronized(@{})
+$sync.version = "#{replaceme}"
+$sync.noUI = $Noui
+$sync.configs = @{}
+$sync.controls = @{}
+$sync.ProcessRunning = $false
+$sync.selectedApps = [System.Collections.Generic.List[string]]::new()
+$sync.selectedTweaks = [System.Collections.Generic.List[string]]::new()
+$sync.selectedFeatures = [System.Collections.Generic.List[string]]::new()
+
+$maxthreads = [int]$env:NUMBER_OF_PROCESSORS
+$hashVars = New-Object System.Management.Automation.Runspaces.SessionStateVariableEntry -ArgumentList 'sync', $sync, $null
+$initialState = [System.Management.Automation.Runspaces.InitialSessionState]::CreateDefault()
+$initialState.Variables.Add($hashVars)
+$sync.runspace = [runspacefactory]::CreateRunspacePool(1, $maxthreads, $initialState, $Host)
+$sync.runspace.Open()

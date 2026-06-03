@@ -1,12 +1,12 @@
 $script:dnsNames = @()
 $script:dnsRadioButtons = @{}
 
-if ($controls["DnsRadioPanel"] -and $dnsConfig) {
-    $script:dnsNames = @($dnsConfig.PSObject.Properties.Name)
+if ($sync.controls["DnsRadioPanel"] -and $sync.configs.dns) {
+    $script:dnsNames = @($sync.configs.dns.PSObject.Properties.Name)
     $script:dnsRadioButtons = @{}
     $isFirst = $true
     foreach ($dnsName in $script:dnsNames) {
-        $dns = $dnsConfig.$dnsName
+        $dns = $sync.configs.dns.$dnsName
         if (-not $dns) { continue }
         $rb = New-Object System.Windows.Controls.RadioButton
         $rb.Tag = $dnsName; $rb.Style = Get-WpfResource "DnsCardStyle"; $rb.GroupName = "DnsProvider"
@@ -17,19 +17,19 @@ if ($controls["DnsRadioPanel"] -and $dnsConfig) {
         $sp.Children.Add($ipTb) | Out-Null
         $rb.Content = $sp
         $rb.Add_Checked({ Write-Log "DNS selected: $($this.Tag)" "Info" })
-        $null = $controls["DnsRadioPanel"].Children.Add($rb)
+        $null = $sync.controls["DnsRadioPanel"].Children.Add($rb)
         $script:dnsRadioButtons[$dnsName] = $rb
         if ($isFirst) { $rb.IsChecked = $true; $isFirst = $false }
     }
     Write-Log "Built $($script:dnsNames.Count) DNS radio buttons." "Success"
 }
 
-if ($controls["BtnApplyDns"]) {
-    $controls["BtnApplyDns"].Add_Click({
+if ($sync.controls["BtnApplyDns"]) {
+    $sync.controls["BtnApplyDns"].Add_Click({
         $selectedRb = $script:dnsRadioButtons.Values | Where-Object { $_.IsChecked -eq $true } | Select-Object -First 1
         if (-not $selectedRb) { Write-Log "No DNS provider selected." "Warn"; return }
         $dnsName = $selectedRb.Tag
-        $dns = $dnsConfig.$dnsName
+        $dns = $sync.configs.dns.$dnsName
         $ipv4 = if ($dns.PSObject.Properties.Name -contains "ipv4") { $dns.ipv4 } else { @() }
         if ($dnsName -eq "Default_DHCP") {
             if (-not (Show-Confirm "Reset DNS" "Reset DNS to default DHCP on all adapters?")) { return }

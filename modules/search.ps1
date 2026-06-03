@@ -1,7 +1,7 @@
 function Apply-Filters {
     Write-Log "Applying search filters..." "Info"
-    $filter = if ($controls["SearchBox"]) { $controls["SearchBox"].Text.ToLower() } else { "" }
-    $showInstalled = $controls["ChkShowInstalled"] -and $controls["ChkShowInstalled"].IsChecked
+    $filter = if ($sync.controls["SearchBox"]) { $sync.controls["SearchBox"].Text.ToLower() } else { "" }
+    $showInstalled = $sync.controls["ChkShowInstalled"] -and $sync.controls["ChkShowInstalled"].IsChecked
     foreach ($cb in $appCheckboxes) {
         $isVisible = $true
         if ($showInstalled) {
@@ -16,8 +16,8 @@ function Apply-Filters {
         try { $cb.Visibility = if ($isVisible) { "Visible" } else { "Collapsed" } } catch { Write-Log "Filter visibility failed: $_" "Warn" }
     }
     foreach ($panelName in @("TweaksPanel1","TweaksPanel2","TweaksPanel3")) {
-        if (-not $controls[$panelName]) { continue }
-        foreach ($cb in $controls[$panelName].Children) {
+        if (-not $sync.controls[$panelName]) { continue }
+        foreach ($cb in $sync.controls[$panelName].Children) {
             if ($cb -isnot [System.Windows.Controls.CheckBox]) { continue }
             $isVisible = $true
             if ($filter) {
@@ -28,12 +28,12 @@ function Apply-Filters {
             try { $cb.Visibility = if ($isVisible) { "Visible" } else { "Collapsed" } } catch { Write-Log "Filter visibility failed: $_" "Warn" }
         }
     }
-    if ($controls["SearchHint"]) { $controls["SearchHint"].Visibility = if ($filter) { "Collapsed" } else { "Visible" } }
+    if ($sync.controls["SearchHint"]) { $sync.controls["SearchHint"].Visibility = if ($filter) { "Collapsed" } else { "Visible" } }
     Write-Log "Filters applied." "Success"
 }
 
-if ($controls["SearchBox"]) {
-    $controls["SearchBox"].Add_TextChanged({
+if ($sync.controls["SearchBox"]) {
+    $sync.controls["SearchBox"].Add_TextChanged({
         Apply-Filters
     })
 }

@@ -1,5 +1,5 @@
 <#
-    Compile.ps1 — Compiles HksUtil modules, config, and XAML into a single script.
+    Compile.ps1 — Compiles HksUtil functions, modules, config, and XAML into a single script.
 
     Usage:
         .\scripts\Compile.ps1          # Produces hksutil.ps1 in repo root
@@ -20,9 +20,20 @@ $version = Get-Date -Format 'yy.MM.dd'
 $header = $header -replace '#{replaceme}', $version
 $script.Add($header)
 
-$script.Add('$controls = @{}')
+# 2. Read all functions (public/private) in alphabetical order
+$funcDir = Join-Path $root "functions"
+if (Test-Path $funcDir) {
+    Get-ChildItem "$funcDir\**\*.ps1" -Recurse | Sort-Object Name | ForEach-Object {
+        $funcContent = Get-Content $_.FullName -Raw
+        $funcName = $_.BaseName -replace '-','_'
+        $bytes = [System.Text.Encoding]::UTF8.GetBytes($funcContent)
+        $b64 = [Convert]::ToBase64String($bytes)
+        $script.Add("`$script:__fn_$funcName = [System.Text.Encoding]::UTF8.GetString([Convert]::FromBase64String('$b64'))")
+        $script.Add($funcContent)
+    }
+}
 
-# 2. Read all modules in dependency order
+# 3. Read all modules in dependency order
 $moduleOrder = @(
     "logger.ps1", "core.ps1", "theme.ps1",
     "navigation.ps1", "tweaks.ps1", "search.ps1",
@@ -41,7 +52,7 @@ foreach ($mod in $moduleOrder) {
     }
 }
 
-# 3. Embed individual config files
+# 4. Embed individual config files into $sync.configs
 $configSections = @{
     "meta"        = "meta.json"
     "themes"      = "themes.json"
@@ -57,7 +68,7 @@ foreach ($key in $configSections.Keys) {
     if (Test-Path $cfgPath) {
         $cfgJson = Get-Content $cfgPath -Raw -Encoding UTF8
         $script.Add(@"
-`$script:embedded_$key = @'
+`$sync.configs.$key = @'
 $cfgJson
 '@ | ConvertFrom-Json
 "@)
@@ -65,17 +76,8 @@ $cfgJson
         Write-Warning "config/$($configSections[$key]) not found."
     }
 }
-$script.Add(@"
-`$script:metaConfig = if (`$script:embedded_meta) { `$script:embedded_meta } else { @{} }
-`$script:appsConfig = if (`$script:embedded_apps) { `$script:embedded_apps } else { @{} }
-`$script:tweaksConfig = if (`$script:embedded_tweaks) { `$script:embedded_tweaks } else { @{} }
-`$script:dnsConfig = if (`$script:embedded_dns) { `$script:embedded_dns } else { @{} }
-`$script:prefsConfig = if (`$script:embedded_preferences) { `$script:embedded_preferences } else { @{} }
-`$script:featuresConfig = if (`$script:embedded_features) { `$script:embedded_features } else { @{} }
-`$script:themesConfig = if (`$script:embedded_themes) { `$script:embedded_themes } else { @{} }
-"@)
 
-# 4. Embed xaml/ui.xaml
+# 5. Embed xaml/ui.xaml
 $xamlPath = Join-Path $root "xaml\ui.xaml"
 if (Test-Path $xamlPath) {
     $xamlContent = Get-Content $xamlPath -Raw -Encoding UTF8
@@ -84,16 +86,14 @@ if (Test-Path $xamlPath) {
 $xamlContent
 '@
 "@)
-} else {
-    Write-Warning "xaml/ui.xaml not found."
 }
 
-# 5. Append compiled main body
+# 6. Append compiled main body
 $script.Add(@'
-if ($Verbose) { $script:logLevel = "Info" }
-$script:appRoot = Split-Path $MyInvocation.MyCommand.Path -Parent
+if ($Verbose) { $sync.logLevel = "Info" }
+$sync.appRoot = Split-Path $MyInvocation.MyCommand.Path -Parent
 Show-HksUtilLogo
-Write-Log "Starting HksUtil v$script:hksVersion..." "Header"
+Write-Log "Starting HksUtil v$($sync.version)..." "Header"
 
 if ($Export) {
     $sel = @{ CheckedApps = @(); CheckedTweaks = @() }
@@ -104,40 +104,41 @@ if ($Export) {
     } catch { Write-Log "Export failed: $_" "Error" }
 }
 
-if ($NoUI) {
+if ($sync.noUI) {
     if ($Config -and $Apply) {
         Write-Log "NoUI mode: applying config..." "Header"
         try {
             if ($Config -match "^https?://") { $importJson = Invoke-WebRequest -Uri $Config -UseBasicParsing | Select-Object -ExpandProperty Content | ConvertFrom-Json }
             else { $importJson = Get-Content $Config -Raw -Encoding UTF8 | ConvertFrom-Json }
             if ($importJson.AppSelections) {
-                    Ensure-PackageManager "winget" | Out-Null
-                    foreach ($id in $importJson.AppSelections) {
-                        Write-Log "Headless install: $id" "Info"
-                        winget install --id=$id --silent --accept-package-agreements --accept-source-agreements 2>&1 | Out-Null
-                    }
+                Ensure-PackageManager "winget" | Out-Null
+                foreach ($id in $importJson.AppSelections) {
+                    Write-Log "Headless install: $id" "Info"
+                    winget install --id=$id --silent --accept-package-agreements --accept-source-agreements 2>&1 | Out-Null
                 }
+            }
             Write-Log "Headless apply complete." "Success"
         } catch { Write-Log "Headless apply failed: $_" "Error" }
     } else { Write-Log "NoUI mode: use -Config <path> -Apply to apply." "Warn" }
-    pause; exit
+    $sync.runspace.Dispose(); $sync.runspace.Close(); pause; exit
 }
 
 try {
     $xamlContent = $script:embeddedXaml -replace 'x:Name="([^"]+)"', 'Name="$1"'
     [xml]$xaml = $xamlContent
     $reader = New-Object System.Xml.XmlNodeReader $xaml
-    $window = [Windows.Markup.XamlReader]::Load($reader)
+    $sync.window = [Windows.Markup.XamlReader]::Load($reader)
     $reader.Close()
 } catch { Write-Log "FATAL ERROR loading UI: $_" "Error"; pause; exit }
 
-$controls = @{}
-$xaml.SelectNodes("//*[@Name]") | ForEach-Object { $controls[$_.Name] = $window.FindName($_.Name) }
-foreach ($k in @($controls.Keys)) { if (-not $controls[$k]) { $controls.Remove($k) } }
+$sync.controls = @{}
+$xaml.SelectNodes("//*[@Name]") | ForEach-Object { $sync.controls[$_.Name] = $sync.window.FindName($_.Name) }
+foreach ($k in @($sync.controls.Keys)) { if (-not $sync.controls[$k]) { $sync.controls.Remove($k) } }
 
 Apply-Theme "dark"
-if ($controls["TitleText"]) { $controls["TitleText"].Add_MouseLeftButtonDown({ $window.DragMove() }) }
+if ($sync.controls["TitleText"]) { $sync.controls["TitleText"].Add_MouseLeftButtonDown({ $sync.window.DragMove() }) }
 
+# Re-execute modules with populated controls
 $script:__modOrder = @("logger","core","theme","navigation","tweaks","search","toolbar","dns","terminal","utility","build","install","features")
 foreach ($_m in $script:__modOrder) {
     $_var = "__mod_$_m"
@@ -145,24 +146,24 @@ foreach ($_m in $script:__modOrder) {
     if ($_code) { . ([ScriptBlock]::Create($_code)) }
 }
 
-if ($controls["BtnClearSearch"]) { $controls["BtnClearSearch"].Add_Click({ if ($controls["SearchBox"]) { $controls["SearchBox"].Text = ""; $controls["SearchBox"].Focus() } }) }
-if ($controls["BtnSelectAll"]) { $controls["BtnSelectAll"].Add_Click({ foreach ($cb in $appCheckboxes) { if ($cb.Visibility -eq "Visible") { $cb.IsChecked = $true } }; Update-SelectedCount; Write-Log "All visible apps selected." "Info" }) }
-if ($controls["BtnClearSelection"]) { $controls["BtnClearSelection"].Add_Click({ foreach ($cb in $appCheckboxes) { $cb.IsChecked = $false }; Update-SelectedCount; Write-Log "Selection cleared." "Info" }) }
-if ($controls["BtnCollapseAll"]) {
-    $controls["BtnCollapseAll"].Add_Click({
+if ($sync.controls["BtnClearSearch"]) { $sync.controls["BtnClearSearch"].Add_Click({ if ($sync.controls["SearchBox"]) { $sync.controls["SearchBox"].Text = ""; $sync.controls["SearchBox"].Focus() } }) }
+if ($sync.controls["BtnSelectAll"]) { $sync.controls["BtnSelectAll"].Add_Click({ foreach ($cb in $appCheckboxes) { if ($cb.Visibility -eq "Visible") { $cb.IsChecked = $true } }; Update-SelectedCount; Write-Log "All visible apps selected." "Info" }) }
+if ($sync.controls["BtnClearSelection"]) { $sync.controls["BtnClearSelection"].Add_Click({ foreach ($cb in $appCheckboxes) { $cb.IsChecked = $false }; Update-SelectedCount; Write-Log "Selection cleared." "Info" }) }
+if ($sync.controls["BtnCollapseAll"]) {
+    $sync.controls["BtnCollapseAll"].Add_Click({
         foreach ($cat in $script:categoryItems.Keys) { $script:categoryCollapsed[$cat] = $true; foreach ($item in $script:categoryItems[$cat]) { $item.Visibility = "Collapsed" } }
         foreach ($panel in @($appPanels)) { foreach ($child in $panel.Children) { if ($child -is [System.Windows.Controls.TextBlock] -and $script:categoryItems.ContainsKey($child.Tag)) { $child.Text = "+ $($child.Tag.ToUpper()) ($($script:categoryItems[$child.Tag].Count))" } } }
     })
 }
-if ($controls["BtnExpandAll"]) {
-    $controls["BtnExpandAll"].Add_Click({
+if ($sync.controls["BtnExpandAll"]) {
+    $sync.controls["BtnExpandAll"].Add_Click({
         foreach ($cat in $script:categoryItems.Keys) { $script:categoryCollapsed[$cat] = $false; foreach ($item in $script:categoryItems[$cat]) { $item.Visibility = "Visible" } }
         foreach ($panel in @($appPanels)) { foreach ($child in $panel.Children) { if ($child -is [System.Windows.Controls.TextBlock] -and $script:categoryItems.ContainsKey($child.Tag)) { $child.Text = "- $($child.Tag.ToUpper()) ($($script:categoryItems[$child.Tag].Count))" } } }
     })
 }
-if ($controls["ChkShowInstalled"]) {
-    $controls["ChkShowInstalled"].Add_Checked({ Write-Log "Filtering to installed apps..." "Info"; if ($script:installedAppIds.Count -eq 0) { Update-InstalledCache }; Apply-Filters })
-    $controls["ChkShowInstalled"].Add_Unchecked({ Apply-Filters })
+if ($sync.controls["ChkShowInstalled"]) {
+    $sync.controls["ChkShowInstalled"].Add_Checked({ Write-Log "Filtering to installed apps..." "Info"; if ($script:installedAppIds.Count -eq 0) { Update-InstalledCache }; Apply-Filters })
+    $sync.controls["ChkShowInstalled"].Add_Unchecked({ Apply-Filters })
 }
 
 Switch-Page "Install"
@@ -184,7 +185,13 @@ if ($Config -and -not $Apply) {
     } catch { Write-Log "Config load failed: $_" "Error" }
 }
 
-try { $window.ShowDialog() | Out-Null } catch { Write-Log "UI Runtime Error: $_" "Error"; pause }
+$sync.window.Add_Closing({
+    $sync.runspace.Dispose()
+    $sync.runspace.Close()
+    [System.GC]::Collect()
+})
+
+try { $sync.window.ShowDialog() | Out-Null } catch { Write-Log "UI Runtime Error: $_" "Error"; pause }
 Write-Log "HksUtil Closed." "Header"
 '@)
 

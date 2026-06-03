@@ -1,5 +1,5 @@
-if ($controls["BtnTerminalDotfiles"]) {
-    $controls["BtnTerminalDotfiles"].Add_Click({
+if ($sync.controls["BtnTerminalDotfiles"]) {
+    $sync.controls["BtnTerminalDotfiles"].Add_Click({
         Write-Log "Installing Nova profile..." "Info"
         try {
             $tmp = "$env:TEMP\nova-install.ps1"
@@ -11,8 +11,8 @@ if ($controls["BtnTerminalDotfiles"]) {
     })
 }
 
-if ($controls["BtnUninstallTerminal"]) {
-    $controls["BtnUninstallTerminal"].Add_Click({
+if ($sync.controls["BtnUninstallTerminal"]) {
+    $sync.controls["BtnUninstallTerminal"].Add_Click({
         Write-Log "Uninstalling Nova profile..." "Info"
         try {
             $tmp = "$env:TEMP\nova-uninstall.ps1"

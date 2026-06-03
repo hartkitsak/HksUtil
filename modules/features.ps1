@@ -1,5 +1,5 @@
-if ($controls["BtnRunFeatures"] -and $featuresConfig -and $featuresConfig.PSObject.Properties.Name -contains "Features") {
-    $controls["BtnRunFeatures"].Add_Click({
+if ($sync.controls["BtnRunFeatures"] -and $sync.configs.features -and $sync.configs.features.PSObject.Properties.Name -contains "Features") {
+    $sync.controls["BtnRunFeatures"].Add_Click({
         $selected = $featuresCheckboxes | Where-Object { $_.IsChecked -eq $true }
         if ($selected.Count -eq 0) { Write-Log "No features selected." "Warn"; return }
         if (-not (Show-Confirm "Run Features" "Apply $($selected.Count) selected feature(s)?")) { return }
@@ -7,7 +7,7 @@ if ($controls["BtnRunFeatures"] -and $featuresConfig -and $featuresConfig.PSObje
         Set-Status "Running $($selected.Count) feature(s)..."
         foreach ($cb in $selected) {
             $featKey = $cb.Tag
-            $feat = $featuresConfig.Features.$featKey
+            $feat = $sync.configs.features.Features.$featKey
             if (-not $feat) { continue }
             Write-Log "Running: $($feat.content)" "Info"
             try { & ([scriptblock]::Create($feat.script)); Write-Log "Feature completed: $($feat.content)" "Success" } catch { Write-Log "Feature failed: $($feat.content): $_" "Error" }

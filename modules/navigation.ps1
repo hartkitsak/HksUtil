@@ -1,25 +1,25 @@
-$script:pages = @{}
-$script:navButtons = @{}
-$script:navNames = @("Install", "Tweaks", "Features", "Preferences", "Legacy", "Settings")
+if (-not $script:pages) { $script:pages = @{} }
+if (-not $script:navButtons) { $script:navButtons = @{} }
+if (-not $script:navNames) { $script:navNames = @("Install", "Tweaks", "Features", "Preferences", "Legacy", "Settings") }
 
 function Show-NavPanel {
     param($Name)
     foreach ($other in $navNames) {
-        if ($controls["Page$other"]) { $controls["Page$other"].Visibility = "Collapsed" }
+        if ($sync.controls["Page$other"]) { $sync.controls["Page$other"].Visibility = "Collapsed" }
     }
-    if ($controls["Page$Name"]) { $controls["Page$Name"].Visibility = "Visible"; $sync.currentTab = $Name; Write-Log "Switched to: $Name" "Info" }
+    if ($sync.controls["Page$Name"]) { $sync.controls["Page$Name"].Visibility = "Visible"; $sync.currentTab = $Name; Write-Log "Switched to: $Name" "Info" }
 }
 
 function Switch-Page { param($Name); Show-NavPanel $Name }
 
-if ($controls.Count) {
+if ($sync.controls.Count) {
     foreach ($n in $navNames) {
-        if ($controls["Page$n"]) { $pages[$n] = $controls["Page$n"] }
-        if ($controls["Nav$n"]) { $navButtons[$n] = $controls["Nav$n"] }
+        if ($sync.controls["Page$n"]) { $pages[$n] = $sync.controls["Page$n"] }
+        if ($sync.controls["Nav$n"]) { $navButtons[$n] = $sync.controls["Nav$n"] }
     }
     foreach ($navName in $navNames) {
         $btnName = "Nav$navName"
-        $btn = $controls[$btnName]
+        $btn = $sync.controls[$btnName]
         if ($btn) {
             $btn.Tag = $navName
             $btn.Add_Click({ Show-NavPanel $this.Tag })
@@ -27,10 +27,10 @@ if ($controls.Count) {
             Write-Log "Navigation: $btnName wired." "Success"
         }
     }
-    if ($window) { $window.Add_KeyDown({
+    if ($sync.window) { $sync.window.Add_KeyDown({
         param($sender, $e)
-            if ($e.Key -eq "Escape" -and $controls["SearchBox"]) {
-                $controls["SearchBox"].Text = ""
+            if ($e.Key -eq "Escape" -and $sync.controls["SearchBox"]) {
+                $sync.controls["SearchBox"].Text = ""
                 Show-NavPanel $navNames[0]
                 $e.Handled = $true
             }

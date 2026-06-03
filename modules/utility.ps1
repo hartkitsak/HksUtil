@@ -1,7 +1,7 @@
 $script:desktopShortcutPath = Join-Path ([Environment]::GetFolderPath("Desktop")) "HksUtil.lnk"
 
-if ($controls["BtnCreateShortcut"]) {
-    $controls["BtnCreateShortcut"].Add_Click({
+if ($sync.controls["BtnCreateShortcut"]) {
+    $sync.controls["BtnCreateShortcut"].Add_Click({
         $lnkPath = $script:desktopShortcutPath
         if (Test-Path $lnkPath) { if (-not (Show-Confirm "Overwrite?" "Shortcut exists. Overwrite?")) { return } }
         try {
@@ -9,7 +9,7 @@ if ($controls["BtnCreateShortcut"]) {
             $shortcut = $wshell.CreateShortcut($lnkPath)
             $pwshPath = (Get-Command powershell.exe).Source
             $shortcut.TargetPath = $pwshPath
-            $shortcut.Arguments = "-ExecutionPolicy RemoteSigned -NoProfile -File `"$($script:appRoot)\app.ps1`""
+            $shortcut.Arguments = "-ExecutionPolicy RemoteSigned -NoProfile -File `"$($sync.appRoot)\app.ps1`""
             $shortcut.Description = "HksUtil v2.0 - Windows Optimizer"
             $shortcut.IconLocation = "$([Environment]::SystemDirectory)\shell32.dll, 1"
             $shortcut.Save()

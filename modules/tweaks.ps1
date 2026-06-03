@@ -47,7 +47,7 @@ function Invoke-UndoTweaks {
     if (-not (Get-ComputerRestorePoint -ErrorAction SilentlyContinue)) { $rbRestore.IsEnabled = $false; $rbRestore.Content += " (none available)" }
     $sb.Children.Add($rbLog) | Out-Null; $sb.Children.Add($rbRestore) | Out-Null
 
-    $w = New-Object System.Windows.Window -Property @{ Title = "Undo Tweaks"; Content = $sb; Width = 420; Height = 180; WindowStartupLocation = "CenterOwner"; Owner = $window; ShowInTaskbar = $false }
+    $w = New-Object System.Windows.Window -Property @{ Title = "Undo Tweaks"; Content = $sb; Width = 420; Height = 180; WindowStartupLocation = "CenterOwner"; Owner = $sync.window; ShowInTaskbar = $false }
     $btnPanel = New-Object System.Windows.Controls.StackPanel -Property @{ Orientation = "Horizontal"; HorizontalAlignment = "Right"; Margin = "0,15,0,0" }
     $okBtn = New-Object System.Windows.Controls.Button -Property @{ Content = "OK"; Width = 80; Height = 28; Margin = "0,0,10,0"; IsDefault = $true }
     $cancelBtn = New-Object System.Windows.Controls.Button -Property @{ Content = "Cancel"; Width = 80; Height = 28; IsCancel = $true }
@@ -97,8 +97,8 @@ function Invoke-UndoTweaks {
     Write-Log "All tweaks undone." "Header"
 }
 
-if ($controls["BtnRunTweaks"]) {
-    $controls["BtnRunTweaks"].Add_Click({
+if ($sync.controls["BtnRunTweaks"]) {
+    $sync.controls["BtnRunTweaks"].Add_Click({
         $selected = $tweakCheckboxes | Where-Object { $_.IsChecked -eq $true }
         if ($selected.Count -eq 0) { Write-Log "No tweaks selected." "Warn"; return }
         if (-not (Show-Confirm "Run Tweaks" "Apply $($selected.Count) tweak(s)?`n`nA system restore point will be created first.")) { return }
@@ -108,8 +108,8 @@ if ($controls["BtnRunTweaks"]) {
         Set-Status "Applying $($selected.Count) tweak(s)..."
         foreach ($cb in $selected) {
             $tweakKey = $cb.Tag; $tweak = $null
-            foreach ($groupKey in $tweaksConfig.PSObject.Properties.Name) {
-                $group = $tweaksConfig.$groupKey
+            foreach ($groupKey in $sync.configs.tweaks.PSObject.Properties.Name) {
+                $group = $sync.configs.tweaks.$groupKey
                 if ($group.PSObject.Properties.Name -contains $tweakKey) { $tweak = $group.$tweakKey; break }
             }
             if (-not $tweak) { continue }
@@ -149,4 +149,4 @@ if ($controls["BtnRunTweaks"]) {
     })
 }
 
-if ($controls["BtnUndoTweaks"]) { $controls["BtnUndoTweaks"].Add_Click({ Invoke-UndoTweaks }) }
+if ($sync.controls["BtnUndoTweaks"]) { $sync.controls["BtnUndoTweaks"].Add_Click({ Invoke-UndoTweaks }) }

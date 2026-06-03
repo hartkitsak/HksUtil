@@ -8,10 +8,10 @@ $script:categoryCollapsed = @{}
 
 # --- Build Apps UI ---
 $appPanelIndex = 0
-if (($controls["AppPanel1"] -and $controls["AppPanel2"] -and $controls["AppPanel3"]) -and $appsConfig) {
-    $appPanels = @($controls["AppPanel1"], $controls["AppPanel2"], $controls["AppPanel3"])
-    foreach ($category in $appsConfig.PSObject.Properties.Name) {
-        $catCount = ($appsConfig.$category.PSObject.Properties.Name).Count
+if (($sync.controls["AppPanel1"] -and $sync.controls["AppPanel2"] -and $sync.controls["AppPanel3"]) -and $sync.configs.apps) {
+    $appPanels = @($sync.controls["AppPanel1"], $sync.controls["AppPanel2"], $sync.controls["AppPanel3"])
+    foreach ($category in $sync.configs.apps.PSObject.Properties.Name) {
+        $catCount = ($sync.configs.apps.$category.PSObject.Properties.Name).Count
         $header = New-Object System.Windows.Controls.TextBlock
         $header.Text = "- $($category.ToUpper()) ($catCount)"; $header.Style = Get-WpfResource "CategoryHeader"; $header.Cursor = "Hand"
         $header.Tag = $category
@@ -26,8 +26,8 @@ if (($controls["AppPanel1"] -and $controls["AppPanel2"] -and $controls["AppPanel
             }
             $this.Text = if ($script:categoryCollapsed[$cat]) { "+ $($cat.ToUpper()) ($($script:categoryItems[$cat].Count))" } else { "- $($cat.ToUpper()) ($($script:categoryItems[$cat].Count))" }
         })
-        foreach ($appKey in $appsConfig.$category.PSObject.Properties.Name) {
-            $app = $appsConfig.$category.$appKey
+        foreach ($appKey in $sync.configs.apps.$category.PSObject.Properties.Name) {
+            $app = $sync.configs.apps.$category.$appKey
             $cb = New-Object System.Windows.Controls.CheckBox
             $cb.Content = $app.content; $cb.Tag = $app.winget; $cb.Style = Get-WpfResource "TweakCheckBox"
             if ($app.description) { $cb.ToolTip = "$($app.content)`n`n$($app.description)`n`nID: $($app.winget)" }
@@ -68,10 +68,10 @@ if (($controls["AppPanel1"] -and $controls["AppPanel2"] -and $controls["AppPanel
 
 # --- Build Preferences UI ---
 $panelIndex = 0
-if ($controls["PrefsPanel1"] -and $controls["PrefsPanel2"] -and $controls["PrefsPanel3"] -and $prefsConfig) {
-    $prefPanels = @($controls["PrefsPanel1"], $controls["PrefsPanel2"], $controls["PrefsPanel3"])
-    foreach ($prefKey in $prefsConfig.PSObject.Properties.Name) {
-        $pref = $prefsConfig.$prefKey
+if ($sync.controls["PrefsPanel1"] -and $sync.controls["PrefsPanel2"] -and $sync.controls["PrefsPanel3"] -and $sync.configs.preferences) {
+    $prefPanels = @($sync.controls["PrefsPanel1"], $sync.controls["PrefsPanel2"], $sync.controls["PrefsPanel3"])
+    foreach ($prefKey in $sync.configs.preferences.PSObject.Properties.Name) {
+        $pref = $sync.configs.preferences.$prefKey
         $cb = New-Object System.Windows.Controls.CheckBox
         $cb.Content = $pref.content; $cb.Tag = $prefKey; $cb.Style = Get-WpfResource "ToggleSwitch"
         if ($pref.description) { $cb.ToolTip = $pref.description }
@@ -83,15 +83,15 @@ if ($controls["PrefsPanel1"] -and $controls["PrefsPanel2"] -and $controls["Prefs
         }
         $cb.IsChecked = if ($hasRegistryOn) { $currentState -eq $pref.registry_on[0].value } else { $false }
         $cb.Add_Checked({
-            $pk = $this.Tag; $p = $prefsConfig.$pk
+            $pk = $this.Tag; $p = $sync.configs.preferences.$pk
             if (-not $p) { return }
-            if ($p.PSObject.Properties.Name -contains "registry_on") { foreach ($r in $p.registry_on) { try { if (!(Test-Path $r.path)) { New-Item $r.path -Force | Out-Null }; $t = if ($r.type) { $r.type } else { "String" }; Set-ItemProperty $r.path -Name $r.name -Value $r.value -Type $t -Force } catch { Write-Log "Registry write failed: $($r.path) $($r.name)" "Warn" } } }
+            if ($p.PSObject.Properties.Name -contains "registry_on") { foreach ($r in $p.registry_on) { try { if (!(Test-Path $r.path)) { New-Item $r.path -Force | Out-Null }; $t = if ($r.type) { $r.type } elseif ($r.value -is [int] -or $r.value -is [long]) { "DWord" } else { "String" }; Set-ItemProperty $r.path -Name $r.name -Value $r.value -Type $t -Force } catch { Write-Log "Registry write failed: $($r.path) $($r.name)" "Warn" } } }
             Write-Log "Pref ON: $($p.content)" "Success"
         })
         $cb.Add_Unchecked({
-            $pk = $this.Tag; $p = $prefsConfig.$pk
+            $pk = $this.Tag; $p = $sync.configs.preferences.$pk
             if (-not $p) { return }
-            if ($p.PSObject.Properties.Name -contains "registry_off") { foreach ($r in $p.registry_off) { try { if (!(Test-Path $r.path)) { New-Item $r.path -Force | Out-Null }; $t = if ($r.type) { $r.type } else { "String" }; Set-ItemProperty $r.path -Name $r.name -Value $r.value -Type $t -Force } catch { Write-Log "Registry write failed: $($r.path) $($r.name)" "Warn" } } }
+            if ($p.PSObject.Properties.Name -contains "registry_off") { foreach ($r in $p.registry_off) { try { if (!(Test-Path $r.path)) { New-Item $r.path -Force | Out-Null }; $t = if ($r.type) { $r.type } elseif ($r.value -is [int] -or $r.value -is [long]) { "DWord" } else { "String" }; Set-ItemProperty $r.path -Name $r.name -Value $r.value -Type $t -Force } catch { Write-Log "Registry write failed: $($r.path) $($r.name)" "Warn" } } }
             Write-Log "Pref OFF: $($p.content)" "Warn"
         })
         $prefPanels[$panelIndex].Children.Add($cb) | Out-Null
@@ -103,10 +103,10 @@ if ($controls["PrefsPanel1"] -and $controls["PrefsPanel2"] -and $controls["Prefs
 
 # --- Build Tweaks UI ---
 $panelIndex = 0
-if ($controls["TweaksPanel1"] -and $controls["TweaksPanel2"] -and $controls["TweaksPanel3"] -and $tweaksConfig) {
-    $panels = @($controls["TweaksPanel1"], $controls["TweaksPanel2"], $controls["TweaksPanel3"])
-    foreach ($groupKey in $tweaksConfig.PSObject.Properties.Name) {
-        $group = $tweaksConfig.$groupKey
+if ($sync.controls["TweaksPanel1"] -and $sync.controls["TweaksPanel2"] -and $sync.controls["TweaksPanel3"] -and $sync.configs.tweaks) {
+    $panels = @($sync.controls["TweaksPanel1"], $sync.controls["TweaksPanel2"], $sync.controls["TweaksPanel3"])
+    foreach ($groupKey in $sync.configs.tweaks.PSObject.Properties.Name) {
+        $group = $sync.configs.tweaks.$groupKey
         $header = New-Object System.Windows.Controls.TextBlock; $header.Text = $groupKey; $header.FontSize = 16; $header.FontWeight = "Bold"
         $header.SetResourceReference([System.Windows.Controls.TextBlock]::ForegroundProperty, "categoryHeaderColor"); $header.Margin = "0,0,0,10"
         $panels[$panelIndex].Children.Add($header) | Out-Null
@@ -124,10 +124,10 @@ if ($controls["TweaksPanel1"] -and $controls["TweaksPanel2"] -and $controls["Twe
 
 # --- Build Features & Fixes UI ---
 $panelIndex = 0
-if ($controls["FeaturesPanel1"] -and $controls["FeaturesPanel2"] -and $controls["FeaturesPanel3"] -and $featuresConfig -and $featuresConfig.PSObject.Properties.Name -contains "Features") {
-    $featPanels = @($controls["FeaturesPanel1"], $controls["FeaturesPanel2"], $controls["FeaturesPanel3"])
-    foreach ($featKey in $featuresConfig.Features.PSObject.Properties.Name) {
-        $feat = $featuresConfig.Features.$featKey
+if ($sync.controls["FeaturesPanel1"] -and $sync.controls["FeaturesPanel2"] -and $sync.controls["FeaturesPanel3"] -and $sync.configs.features -and $sync.configs.features.PSObject.Properties.Name -contains "Features") {
+    $featPanels = @($sync.controls["FeaturesPanel1"], $sync.controls["FeaturesPanel2"], $sync.controls["FeaturesPanel3"])
+    foreach ($featKey in $sync.configs.features.Features.PSObject.Properties.Name) {
+        $feat = $sync.configs.features.Features.$featKey
         $cb = New-Object System.Windows.Controls.CheckBox; $cb.Content = $feat.content; $cb.Tag = $featKey; $cb.Style = Get-WpfResource "TweakCheckBox"
         if ($feat.description) { $cb.ToolTip = $feat.description }
         $featPanels[$panelIndex].Children.Add($cb) | Out-Null
@@ -136,9 +136,9 @@ if ($controls["FeaturesPanel1"] -and $controls["FeaturesPanel2"] -and $controls[
     }
     Write-Log "Built $($featuresCheckboxes.Count) feature checkboxes." "Success"
 }
-if ($controls["FixesWrapPanel"] -and $featuresConfig -and $featuresConfig.PSObject.Properties.Name -contains "Fixes") {
-    foreach ($fixKey in $featuresConfig.Fixes.PSObject.Properties.Name) {
-        $fix = $featuresConfig.Fixes.$fixKey
+if ($sync.controls["FixesWrapPanel"] -and $sync.configs.features -and $sync.configs.features.PSObject.Properties.Name -contains "Fixes") {
+    foreach ($fixKey in $sync.configs.features.Fixes.PSObject.Properties.Name) {
+        $fix = $sync.configs.features.Fixes.$fixKey
         $btn = New-Object System.Windows.Controls.Button; $btn.Style = Get-WpfResource "FeatureCard"; $btn.Content = $fix.content; $btn.ToolTip = $fix.description; $btn.Tag = $fix
         $btn.Add_Click({
             $f = $this.Tag
@@ -146,9 +146,9 @@ if ($controls["FixesWrapPanel"] -and $featuresConfig -and $featuresConfig.PSObje
             Write-Log "Running fix: $($f.content)" "Header"
             try { & ([scriptblock]::Create($f.script)); Write-Log "Fix completed: $($f.content)" "Success"; Show-Info "Fix Complete" "$($f.content)`n`nCompleted successfully." } catch { Write-Log "Fix failed: $_" "Error"; Show-Info "Fix Failed" "$($f.content)`n`nError: $_" }
         })
-        $controls["FixesWrapPanel"].Children.Add($btn) | Out-Null
+        $sync.controls["FixesWrapPanel"].Children.Add($btn) | Out-Null
     }
-    Write-Log "Built $($featuresConfig.Fixes.PSObject.Properties.Name.Count) fix buttons." "Success"
+    Write-Log "Built $($sync.configs.features.Fixes.PSObject.Properties.Name.Count) fix buttons." "Success"
 }
 
 # --- Build Legacy Windows Panels UI ---
@@ -171,8 +171,8 @@ $legacyPanels = @(
     @{ Name = "Windows Restore"; Desc = "System Restore - create or restore restore points"; Command = "rstrui.exe" }
 )
 
-if ($controls["LegacyPanel1"] -and $controls["LegacyPanel2"] -and $controls["LegacyPanel3"]) {
-    $legacyPanelsArr = @($controls["LegacyPanel1"], $controls["LegacyPanel2"], $controls["LegacyPanel3"])
+if ($sync.controls["LegacyPanel1"] -and $sync.controls["LegacyPanel2"] -and $sync.controls["LegacyPanel3"]) {
+    $legacyPanelsArr = @($sync.controls["LegacyPanel1"], $sync.controls["LegacyPanel2"], $sync.controls["LegacyPanel3"])
     $panelIndex = 0
     foreach ($panel in $legacyPanels) {
         $btn = New-Object System.Windows.Controls.Button; $btn.Style = Get-WpfResource "FeatureCard"; $btn.ToolTip = "$($panel.Name)`n$($panel.Desc)`n`nLaunch: $($panel.Command)"; $btn.Tag = $panel.Command; $btn.HorizontalAlignment = "Stretch"

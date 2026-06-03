@@ -27,8 +27,8 @@ function Ensure-PackageManager {
     } catch { Write-Log "$Pkg install failed: $_" "Error"; return $false }
 }
 
-if ($controls["BtnInstall"]) {
-    $controls["BtnInstall"].Add_Click({
+if ($sync.controls["BtnInstall"]) {
+    $sync.controls["BtnInstall"].Add_Click({
         $selected = $appCheckboxes | Where-Object { $_.IsChecked -eq $true }
         if ($selected.Count -eq 0) { Write-Log "No apps selected." "Warn"; return }
         $pkg = $script:pkgManager
@@ -50,7 +50,7 @@ if ($controls["BtnInstall"]) {
             } catch { Write-Log "Failed: $id`: $_" "Error" }
         }
         Update-InstalledCache
-        if ($controls["ChkShowInstalled"]) { Apply-Filters }
+        if ($sync.controls["ChkShowInstalled"]) { Apply-Filters }
         Hide-Progress; Set-Status "Ready"
         Show-Info "Installation Complete" "$($selected.Count) application(s) installed via $pkg."
         Write-Log "Installation complete." "Header"
@@ -58,8 +58,8 @@ if ($controls["BtnInstall"]) {
     })
 }
 
-if ($controls["BtnUninstall"]) {
-    $controls["BtnUninstall"].Add_Click({
+if ($sync.controls["BtnUninstall"]) {
+    $sync.controls["BtnUninstall"].Add_Click({
         $selected = $appCheckboxes | Where-Object { $_.IsChecked -eq $true }
         if ($selected.Count -eq 0) { Write-Log "No apps selected." "Warn"; return }
         $pkg = $script:pkgManager
@@ -93,12 +93,12 @@ if ($controls["BtnUninstall"]) {
             }
         }
         Update-InstalledCache
-        if ($controls["ChkShowInstalled"]) { Apply-Filters }
+        if ($sync.controls["ChkShowInstalled"]) { Apply-Filters }
         Hide-Progress; Set-Status "Ready"
         Show-Info "Uninstall Complete" "$($selected.Count) application(s) uninstalled via $pkg."
         Write-Log "Uninstallation complete." "Header"
     })
 }
 
-if ($controls["PkgWinGet"]) { $controls["PkgWinGet"].Add_Checked({ $script:pkgManager = "winget"; Write-Log "Package manager: WinGet" "Info" }) }
-if ($controls["PkgChoco"]) { $controls["PkgChoco"].Add_Checked({ $script:pkgManager = "choco"; Write-Log "Package manager: Chocolatey" "Info" }) }
+if ($sync.controls["PkgWinGet"]) { $sync.controls["PkgWinGet"].Add_Checked({ $script:pkgManager = "winget"; Write-Log "Package manager: WinGet" "Info" }) }
+if ($sync.controls["PkgChoco"]) { $sync.controls["PkgChoco"].Add_Checked({ $script:pkgManager = "choco"; Write-Log "Package manager: Chocolatey" "Info" }) }
