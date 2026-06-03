@@ -9,13 +9,12 @@ on:
   workflow_call:
 
 jobs:
-  Compile-and-Check:
+  compile:
     runs-on: windows-latest
     steps:
-    - name: Checkout Sources
-      uses: actions/checkout@v6
+    - uses: actions/checkout@v4
 
-    - name: Compile and Syntax Check
+    - name: Compile
       shell: pwsh
       run: |
         Set-ExecutionPolicy Bypass -Scope Process -Force
