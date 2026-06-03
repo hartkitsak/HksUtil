@@ -21,6 +21,14 @@ HH   HH KK   KK  SSSSSS   UUUUU    TT   IIIIII LLLL</pre>
     <img src="https://img.shields.io/badge/tests-32%20passed-2ea44f" alt="Tests">
     <img src="https://img.shields.io/badge/license-MIT-yellow" alt="License">
   </p>
+  <p>
+    <a href="https://github.com/hartkitsak/HksUtil/actions/workflows/compile-check.yaml">
+      <img src="https://github.com/hartkitsak/HksUtil/actions/workflows/compile-check.yaml/badge.svg" alt="Compile & Check">
+    </a>
+    <a href="https://github.com/hartkitsak/HksUtil/actions/workflows/unittests.yaml">
+      <img src="https://github.com/hartkitsak/HksUtil/actions/workflows/unittests.yaml/badge.svg" alt="Unit Tests">
+    </a>
+  </p>
 </div>
 
 ---
@@ -55,7 +63,7 @@ HksUtil is a Windows utility tool that provides a modern graphical interface for
 20 registry-based toggles applied immediately: dark theme, taskbar alignment, file extensions, hidden files, Num Lock, Caps Lock, S3 sleep, battery percentage, sticky keys, mouse acceleration, smooth scrolling, and more.
 
 ### 🖥️ Legacy Panels
-One-click access to Control Panel, Device Manager, Network Connections, Disk Management, Services, Event Viewer, Registry Editor, System Properties, and Task Scheduler.
+One-click access to 16 classic Windows tools: Control Panel, Device Manager, Disk Management, Event Viewer, Registry Editor, Services, Task Scheduler, System Properties, Computer Management, Network Connections, Power Panel, Printer Panel, Region, Sound, Time/Date, System Restore.
 
 ### ⚙️ Settings Dashboard
 - **DNS Switcher** — Google, Cloudflare, OpenDNS, Quad9, AdGuard
@@ -86,14 +94,18 @@ cd HksUtil
 .\app.ps1
 ```
 
+### Compiled Single-File Mode
+```powershell
+.\Compile.ps1       # produces hksutil.ps1
+.\hksutil.ps1       # run the compiled version
+```
+
 ### Headless Mode
-Apply apps and tweaks from a config file without opening the UI:
 ```powershell
 .\app.ps1 -Noui -Config .\config\my-config.json -Apply
 ```
 
 ### Export Config
-Save current selections to a portable config file:
 ```powershell
 .\app.ps1 -Export .\config\exported.json
 ```
@@ -117,6 +129,9 @@ Save current selections to a portable config file:
 HksUtil/
 ├── app.ps1                 # Entry point — auto-elevate, config load, XAML bootstrap
 ├── launcher.ps1             # One-liner bootstrap for remote execution
+├── Compile.ps1              # Build script — merges modules + config + XAML into hksutil.ps1
+├── scripts/
+│   └── start.ps1            # Compiled script header template
 ├── config/
 │   └── config.json          # Unified configuration (apps, tweaks, themes, DNS)
 ├── xaml/
@@ -135,7 +150,13 @@ HksUtil/
 │   ├── build.ps1            # Dynamic UI builder from config
 │   ├── install.ps1          # Batch install/uninstall engine
 │   └── features.ps1         # Windows feature toggles
-└── tests/                   # Pester test suite (32 tests, 7 files)
+├── tests/                   # Pester test suite (32 tests, 7 files)
+├── lint/
+│   └── PSScriptAnalyser.ps1 # PSScriptAnalyzer configuration
+├── .github/
+│   ├── ISSUE_TEMPLATE/      # Bug report + feature request templates
+│   └── workflows/           # CI: compile-check + unit tests
+└── LICENSE                  # MIT license
 ```
 
 </details>
@@ -149,6 +170,8 @@ HksUtil/
 | Package Managers | WinGet CLI, Chocolatey CLI |
 | Runtime | .NET Framework 4.8 |
 | Testing | Pester 3.4.0 |
+| Linting | PSScriptAnalyzer |
+| CI/CD | GitHub Actions (compile + tests) |
 | Theming | JSON color config → runtime `BrushConverter` |
 
 ## Customization
@@ -168,6 +191,10 @@ Edit `config/config.json` to add applications, tweaks, preferences, DNS provider
 ```
 
 All sections are self-documenting — refer to the field names in `config.json` for available keys.
+
+## Contributing
+
+Bug reports and feature requests welcome via [GitHub Issues](https://github.com/hartkitsak/HksUtil/issues). See the issue templates for guidelines.
 
 ## License
 

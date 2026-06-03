@@ -36,7 +36,11 @@ The script auto-elevates to Admin if not already running as Admin.
 HksUtil/
 ├── app.ps1                    # Entry point (~160 lines: auto-elevate, dot-source, XAML, NoUI)
 ├── launcher.ps1               # Bootstrap script for irm|iex
+├── Compile.ps1                # Build script — merges → hksutil.ps1 (single-file output)
+├── scripts/
+│   └── start.ps1              # Compiled script header template (header, params, admin check)
 ├── README.md                  # GitHub documentation
+├── LICENSE                    # MIT license (file)
 ├── .gitignore
 ├── config/
 │   └── config.json            # Unified config (7 sections: meta, themes, apps, tweaks, dns, preferences, features)
@@ -59,14 +63,13 @@ HksUtil/
 │   ├── build.ps1              # Dynamic UI builder for all pages (apps, tweaks, features, preferences, legacy)
 │   ├── install.ps1            # Batch install/uninstall logic (Invoke-Install, Invoke-Uninstall)
 │   └── features.ps1           # Invoke-RunFeatures (applies checked feature checkboxes)
-└── tests/                     # Pester 3.4.0 test suite (32 tests, 7 files)
-    ├── logger.Tests.ps1       # Show-HksUtilLogo, Write-Log types, Show-Confirm/Info/Set-Status
-    ├── core.Tests.ps1         # Invoke-WPFUIThread, Show-Progress, Set-ProgressTaskbar, Update-InstalledCache
-    ├── navigation.Tests.ps1   # Switch-Page, pages/navButtons/UpdateselectedCount
-    ├── search.Tests.ps1       # Apply-Filters, Update-SelectedCount
-    ├── terminal.Tests.ps1     # Invoke-TerminalAction (winget, choco)
-    ├── theme.Tests.ps1        # Apply-Theme defined, currentTheme defaults, appRoot set
-    └── tweaks.Tests.ps1       # Save-OriginalValues (store, skip duplicates, empty tweak), Invoke-UndoTweaks
+├── tests/                     # Pester 3.4.0 test suite (32 tests, 7 files)
+├── lint/
+│   └── PSScriptAnalyser.ps1   # PSScriptAnalyzer rules
+├── .github/
+│   ├── ISSUE_TEMPLATE/        # bug_report.yaml, feature_request.yaml, config.yml
+│   └── workflows/             # compile-check.yaml, unittests.yaml
+└── .gitignore                 # Ignores hksutil.ps1 (compiled output)
 ```
 
 ---
@@ -424,9 +427,48 @@ Each: `{ description, ipv4: [2], ipv6: [2] }`
 
 ---
 
-## 11. VERSION HISTORY
+## 11. BUILD SYSTEM (Compile.ps1)
+
+`Compile.ps1` merges all source files into a single portable `hksutil.ps1`:
+
+**Flow:**
+1. Read `scripts/start.ps1` → replace `#{replaceme}` with version date (`yy.MM.dd`)
+2. Read all 13 modules in dependency order (logger → core → theme → navigation → tweaks → search → toolbar → dns → terminal → utility → build → install → features)
+3. Read `config/config.json` → embed as here-string → parse at runtime
+4. Read `xaml/ui.xaml` → embed as here-string → parse at runtime
+5. Append compiled main body (NoUI/Export logic, XAML loading, UI setup, event handlers)
+6. Write to `hksutil.ps1`
+
+**Usage:**
+```powershell
+.\Compile.ps1        # Produces hksutil.ps1
+.\Compile.ps1 -Run   # Compile and launch
+```
+
+The output `hksutil.ps1` is gitignored (not tracked in repo). Compiled version supports the same params as `app.ps1`.
+
+---
+
+## 12. CI/CD (GitHub Actions)
+
+Two workflows in `.github/workflows/`:
+
+**compile-check.yaml:**
+- Trigger: push/PR to main, manual dispatch, or called by other workflows
+- Job: Checkout → run `Compile.ps1` → fail on error
+
+**unittests.yaml:**
+- Trigger: push/PR to main, manual dispatch
+- Jobs:
+  - `lint`: PSScriptAnalyzer on ubuntu-latest (settings from `lint/PSScriptAnalyser.ps1`)
+  - `test`: Install Pester 3.4.0 → run `Invoke-Pester tests/*.Tests.ps1` on windows-latest
+
+---
+
+## 13. VERSION HISTORY
 
 | Version | Date | Changes |
 |---------|------|---------|
 | 1.x | — | Monolithic app.ps1 (1135 lines), 6 separate JSON configs, XAML theme files |
 | 2.0 | 2026 | 14-file modular split, unified config.json, 32 Pester tests, NoUI mode, JSON-based theming, System Restore, 47 code audit fixes, 8 bug fixes |
+| 2.1 | 2026 | LICENSE file, .github/ISSUE_TEMPLATE, .github/workflows (CI/CD), lint/PSScriptAnalyser.ps1, Compile.ps1 build system, 16 Legacy panels |

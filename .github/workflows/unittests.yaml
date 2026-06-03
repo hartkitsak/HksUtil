@@ -1,0 +1,44 @@
+name: Unit Tests
+
+on:
+  push:
+    branches: ["main"]
+  pull_request:
+    branches: ["main"]
+  workflow_dispatch:
+
+jobs:
+  lint:
+    name: PS Script Analyzer
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v6
+    - name: lint
+      uses: devblackops/github-action-psscriptanalyzer@master
+      with:
+        sendComment: false
+        settingsPath: lint/PSScriptAnalyser.ps1
+        failOnErrors: false
+        failOnWarnings: false
+        failOnInfos: false
+
+  test:
+    runs-on: windows-latest
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v6
+
+    - name: Install Pester 3.4.0
+      run: |
+        Set-ExecutionPolicy -ExecutionPolicy Bypass -Scope Process
+        Install-Module -Name Pester -RequiredVersion 3.4.0 -Force -SkipPublisherCheck -AllowClobber
+      shell: pwsh
+
+    - name: Run Pester tests
+      run: |
+        Set-ExecutionPolicy -ExecutionPolicy Bypass -Scope Process
+        Import-Module Pester -RequiredVersion 3.4.0 -Force
+        Invoke-Pester -Path 'tests/*.Tests.ps1' -Output Detailed
+      shell: pwsh
+      env:
+        TEMP: ${{ runner.temp }}

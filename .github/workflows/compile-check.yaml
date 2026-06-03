@@ -1,0 +1,23 @@
+name: Compile & Check
+
+on:
+  push:
+    branches: ["main"]
+  pull_request:
+    branches: ["main"]
+  workflow_dispatch:
+  workflow_call:
+
+jobs:
+  Compile-and-Check:
+    runs-on: windows-latest
+    steps:
+    - name: Checkout Sources
+      uses: actions/checkout@v6
+
+    - name: Compile and Syntax Check
+      shell: pwsh
+      run: |
+        Set-ExecutionPolicy Bypass -Scope Process -Force
+        ./Compile.ps1
+      continue-on-error: false
