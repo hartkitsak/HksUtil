@@ -147,8 +147,18 @@ if ($Config -and -not $Apply) {
         elseif (Test-Path $Config) { $importJson = Get-Content $Config -Raw -Encoding UTF8 | ConvertFrom-Json }
         else { Write-Log "Config path not found: $Config" "Warn"; $importJson = $null }
         if ($importJson) {
+            # NEW format: AppSelections (array of winget IDs)
             if ($importJson.AppSelections) { foreach ($cb in $appCheckboxes) { $cb.IsChecked = @($importJson.AppSelections) -contains $cb.Tag } }
+            # OLD format: CheckedApps (array of {Name, Content})
+            if ($importJson.CheckedApps) { foreach ($appEntry in $importJson.CheckedApps) { $cb = $appCheckboxes | Where-Object { $_.Tag -eq $appEntry.Name }; if ($cb) { $cb.IsChecked = $true } } }
+
+            if ($importJson.TweakSelections) { foreach ($cb in $tweakCheckboxes) { $cb.IsChecked = @($importJson.TweakSelections) -contains $cb.Tag } }
+            if ($importJson.CheckedTweaks) { foreach ($tweakEntry in $importJson.CheckedTweaks) { $cb = $tweakCheckboxes | Where-Object { $_.Tag -eq $tweakEntry.Name }; if ($cb) { $cb.IsChecked = $true } } }
+
+            if ($importJson.FeatureSelections) { foreach ($cb in $featuresCheckboxes) { $cb.IsChecked = @($importJson.FeatureSelections) -contains $cb.Tag } }
+
             if ($importJson.PreferenceStates) { foreach ($pk in $importJson.PreferenceStates.PSObject.Properties.Name) { if ($prefCheckboxes[$pk]) { $prefCheckboxes[$pk].IsChecked = $importJson.PreferenceStates.$pk -eq $true } } }
+
             Update-SelectedCount; Write-Log "Config loaded from $Config" "Success"
         }
     } catch { Write-Log "Config load failed: $_" "Error" }

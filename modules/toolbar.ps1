@@ -21,19 +21,29 @@ if ($controls["BtnToolbarTheme"]) {
 if ($controls["BtnGearExport"]) {
     $controls["BtnGearExport"].Add_Click({
         try {
+            $sfd = New-Object Microsoft.Win32.SaveFileDialog
+            $sfd.Filter = "JSON Config (*.json)|*.json|All Files (*.*)|*.*"
+            $sfd.Title = "Export Config"
+            $sfd.FileName = "HksUtil-$([DateTime]::Now.ToString('yyyyMMdd-HHmmss')).json"
+            $sfd.InitialDirectory = [Environment]::GetFolderPath("Desktop")
+            $result = $sfd.ShowDialog($window)
+            if ($result -ne $true) { return }
             $data = @{
-                ExportDate = (Get-Date -Format "yyyy-MM-dd HH:mm:ss")
-                Version = $sync.version
-                LogLines = $script:logLines
-                CheckedApps = @($appCheckboxes | Where-Object { $_.IsChecked -eq $true } | ForEach-Object { @{Name = $_.Tag; Content = $_.Content} })
-                CheckedTweaks = @($tweakCheckboxes | Where-Object { $_.IsChecked -eq $true } | ForEach-Object { @{Name = $_.Tag; Content = $_.Content} })
+                AppSelections = @($appCheckboxes | Where-Object { $_.IsChecked -eq $true } | ForEach-Object { $_.Tag })
+                TweakSelections = @($tweakCheckboxes | Where-Object { $_.IsChecked -eq $true } | ForEach-Object { $_.Tag })
+                FeatureSelections = @($featuresCheckboxes | Where-Object { $_.IsChecked -eq $true } | ForEach-Object { $_.Tag })
             }
+            $prefState = @{}
+            foreach ($pk in $prefCheckboxes.Keys) {
+                if ($prefCheckboxes[$pk]) { $prefState[$pk] = ($prefCheckboxes[$pk].IsChecked -eq $true) }
+            }
+            $data.PreferenceStates = $prefState
             $json = $data | ConvertTo-Json -Depth 5
-            $path = [Environment]::GetFolderPath("Desktop") + "\HksUtil-$([DateTime]::Now.ToString('yyyyMMdd-HHmmss')).json"
-            [System.IO.File]::WriteAllText($path, $json, [System.Text.UTF8Encoding]::new($false))
-            Write-Log "Exported to $path" "Success"
-            Show-Info "Export Complete" "Config exported to:`n$path"
+            [System.IO.File]::WriteAllText($sfd.FileName, $json, [System.Text.UTF8Encoding]::new($false))
+            Write-Log "Exported to $($sfd.FileName)" "Success"
+            Show-Info "Export Complete" "Config exported to:`n$($sfd.FileName)"
         } catch { Write-Log "Export failed: $_" "Error" }
+        finally { if ($sfd) { $sfd.Dispose() } }
         if ($controls["BtnToolbarSettings"]) { $controls["BtnToolbarSettings"].IsChecked = $false }
     })
 }
@@ -42,25 +52,57 @@ if ($controls["BtnGearImport"]) {
     $controls["BtnGearImport"].Add_Click({
         $ofd = New-Object Microsoft.Win32.OpenFileDialog
         try {
-            $ofd.Filter = "JSON Files (*.json)|*.json|All Files (*.*)|*.*"
+            $ofd.Filter = "JSON Config (*.json)|*.json|All Files (*.*)|*.*"
             $ofd.Title = "Import Config"
             $ofd.InitialDirectory = [Environment]::GetFolderPath("Desktop")
             $result = $ofd.ShowDialog($window)
             if ($result -ne $true) { return }
             $json = [System.IO.File]::ReadAllText($ofd.FileName, [System.Text.UTF8Encoding]::new($false))
             $data = $json | ConvertFrom-Json
+
+            # NEW format: AppSelections (array of winget IDs)
+            if ($data.AppSelections) {
+                foreach ($aid in $data.AppSelections) {
+                    $cb = $appCheckboxes | Where-Object { $_.Tag -eq $aid }
+                    if ($cb) { $cb.IsChecked = $true }
+                }
+            }
+            # OLD format: CheckedApps (array of {Name, Content})
             if ($data.CheckedApps) {
                 foreach ($appEntry in $data.CheckedApps) {
                     $cb = $appCheckboxes | Where-Object { $_.Tag -eq $appEntry.Name }
                     if ($cb) { $cb.IsChecked = $true }
                 }
             }
+
+            # NEW format: TweakSelections (array of keys)
+            if ($data.TweakSelections) {
+                foreach ($tk in $data.TweakSelections) {
+                    $cb = $tweakCheckboxes | Where-Object { $_.Tag -eq $tk }
+                    if ($cb) { $cb.IsChecked = $true }
+                }
+            }
+            # OLD format: CheckedTweaks (array of {Name, Content})
             if ($data.CheckedTweaks) {
                 foreach ($tweakEntry in $data.CheckedTweaks) {
                     $cb = $tweakCheckboxes | Where-Object { $_.Tag -eq $tweakEntry.Name }
                     if ($cb) { $cb.IsChecked = $true }
                 }
             }
+
+            if ($data.FeatureSelections) {
+                foreach ($fk in $data.FeatureSelections) {
+                    $cb = $featuresCheckboxes | Where-Object { $_.Tag -eq $fk }
+                    if ($cb) { $cb.IsChecked = $true }
+                }
+            }
+
+            if ($data.PreferenceStates) {
+                foreach ($pk in $data.PreferenceStates.PSObject.Properties.Name) {
+                    if ($prefCheckboxes[$pk]) { $prefCheckboxes[$pk].IsChecked = $data.PreferenceStates.$pk -eq $true }
+                }
+            }
+
             Write-Log "Imported from $($ofd.FileName)" "Success"
             Show-Info "Import Complete" "Configuration imported."
         } catch { Write-Log "Import failed: $_" "Error" }
