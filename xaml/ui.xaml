@@ -118,22 +118,23 @@
             </Style>
             <Style x:Key="FeatureCard" TargetType="Button">
                 <Setter Property="Margin" Value="5"/>
-                <Setter Property="Padding" Value="12,10"/>
+                <Setter Property="Padding" Value="14,12"/>
                 <Setter Property="Background" Value="{DynamicResource cardBackground}"/>
                 <Setter Property="Foreground" Value="{DynamicResource cardForeground}"/>
                 <Setter Property="BorderBrush" Value="{DynamicResource cardBorder}"/>
                 <Setter Property="BorderThickness" Value="1"/>
                 <Setter Property="MinWidth" Value="280"/>
                 <Setter Property="Cursor" Value="Hand"/>
+                <Setter Property="TextBlock.FontSize" Value="13"/>
                 <Setter Property="Template">
                     <Setter.Value>
                         <ControlTemplate TargetType="Button">
-                            <Border Background="{TemplateBinding Background}" BorderBrush="{TemplateBinding BorderBrush}" BorderThickness="{TemplateBinding BorderThickness}" CornerRadius="6" Padding="{TemplateBinding Padding}">
-                                <ContentPresenter HorizontalAlignment="Left" VerticalAlignment="Center"/>
+                            <Border x:Name="RootBorder" Background="{TemplateBinding Background}" BorderBrush="{TemplateBinding BorderBrush}" BorderThickness="{TemplateBinding BorderThickness}" CornerRadius="6" Padding="{TemplateBinding Padding}">
+                                <ContentPresenter HorizontalAlignment="Stretch" VerticalAlignment="Center"/>
                             </Border>
                             <ControlTemplate.Triggers>
                                 <Trigger Property="IsMouseOver" Value="True">
-                                    <Setter Property="Background" Value="{DynamicResource hoverBackground}"/>
+                                    <Setter TargetName="RootBorder" Property="Background" Value="{DynamicResource hoverBackground}"/>
                                     <Setter Property="BorderBrush" Value="{DynamicResource accentColor}"/>
                                 </Trigger>
                             </ControlTemplate.Triggers>

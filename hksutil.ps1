@@ -698,7 +698,7 @@ if ($controls["BtnCreateShortcut"]) {
             $wshell = New-Object -ComObject WScript.Shell
             $shortcut = $wshell.CreateShortcut($lnkPath)
             $shortcut.TargetPath = "C:\WINDOWS\System32\WindowsPowerShell\v1.0\powershell.exe"
-            $shortcut.Arguments = '-ExecutionPolicy Bypass -Command "Start-Process powershell.exe -verb runas -ArgumentList ''-Command \"irm https://raw.githubusercontent.com/hartkitsak/HksUtil/main/.ps1 | iex\"''"'
+            $shortcut.Arguments = '-ExecutionPolicy Bypass -Command "Start-Process powershell.exe -verb runas -ArgumentList ''-Command \"irm https://raw.githubusercontent.com/hartkitsak/HksUtil/main/hksutil.ps1 | iex\"''"'
             $shortcut.Description = "HksUtil v2.0 - Windows Optimizer"
             $shortcut.IconLocation = "C:\WINDOWS\system32\pifmgr.dll, 4"
             $shortcut.Save()
@@ -884,11 +884,11 @@ if ($controls["LegacyPanel1"] -and $controls["LegacyPanel2"] -and $controls["Leg
     $legacyPanelsArr = @($controls["LegacyPanel1"], $controls["LegacyPanel2"], $controls["LegacyPanel3"])
     $panelIndex = 0
     foreach ($panel in $legacyPanels) {
-        $btn = New-Object System.Windows.Controls.Button; $btn.Style = Get-WpfResource "FeatureCard"; $btn.ToolTip = "$($panel.Name)`n$($panel.Desc)`n`nLaunch: $($panel.Command)"; $btn.Tag = $panel.Command; $btn.Width = 380
+        $btn = New-Object System.Windows.Controls.Button; $btn.Style = Get-WpfResource "FeatureCard"; $btn.ToolTip = "$($panel.Name)`n$($panel.Desc)`n`nLaunch: $($panel.Command)"; $btn.Tag = $panel.Command; $btn.HorizontalAlignment = "Stretch"
         $sp = New-Object System.Windows.Controls.StackPanel; $sp.Orientation = "Horizontal"
         $textSp = New-Object System.Windows.Controls.StackPanel; $textSp.Orientation = "Vertical"; $textSp.VerticalAlignment = "Center"
-        $nameTb = New-Object System.Windows.Controls.TextBlock; $nameTb.Text = $panel.Name; $nameTb.FontSize = 13; $nameTb.FontWeight = "SemiBold"; $nameTb.SetResourceReference([System.Windows.Controls.TextBlock]::ForegroundProperty, "pageTitleColor"); $textSp.Children.Add($nameTb) | Out-Null
-        $descTb = New-Object System.Windows.Controls.TextBlock; $descTb.Text = $panel.Desc; $descTb.FontSize = 11; $descTb.SetResourceReference([System.Windows.Controls.TextBlock]::ForegroundProperty, "textMuted"); $descTb.TextWrapping = "Wrap"; $descTb.MaxWidth = 280; $textSp.Children.Add($descTb) | Out-Null
+        $nameTb = New-Object System.Windows.Controls.TextBlock; $nameTb.Text = $panel.Name; $nameTb.FontSize = 14; $nameTb.FontWeight = "SemiBold"; $nameTb.SetResourceReference([System.Windows.Controls.TextBlock]::ForegroundProperty, "pageTitleColor"); $textSp.Children.Add($nameTb) | Out-Null
+        $descTb = New-Object System.Windows.Controls.TextBlock; $descTb.Text = $panel.Desc; $descTb.FontSize = 11; $descTb.SetResourceReference([System.Windows.Controls.TextBlock]::ForegroundProperty, "textMuted"); $descTb.TextWrapping = "Wrap"; $textSp.Children.Add($descTb) | Out-Null
         $sp.Children.Add($textSp) | Out-Null; $btn.Content = $sp
         $btn.Add_Click({
             $cmd = $this.Tag; Write-Log "Launching: $cmd" "Info"
@@ -1030,32 +1030,6 @@ $script:embedded_meta = @'
 }
 
 '@ | ConvertFrom-Json
-$script:embedded_features = @'
-{
-  "Features": {
-    "dotnet": { "content": ".NET Framework (2, 3, 4)", "description": "Enable .NET Framework 3.5 and 4.8", "script": "Enable-WindowsOptionalFeature -Online -FeatureName NetFx3 -All -NoRestart; Enable-WindowsOptionalFeature -Online -FeatureName NetFx4-AdvSrvs -All -NoRestart" },
-    "hyperv": { "content": "Hyper-V", "description": "Enable Hyper-V virtualization", "script": "Enable-WindowsOptionalFeature -Online -FeatureName Microsoft-Hyper-V-All -All -NoRestart" },
-    "f8_boot_enable": { "content": "Legacy F8 Boot Recovery - Enable", "description": "Enable legacy F8 boot menu", "script": "bcdedit /set {default} bootmenupolicy legacy" },
-    "f8_boot_disable": { "content": "Legacy F8 Boot Recovery - Disable", "description": "Disable legacy F8 boot menu", "script": "bcdedit /set {default} bootmenupolicy standard" },
-    "legacy_media": { "content": "Legacy Media Components (WMP, DirectPlay)", "description": "Enable Windows Media Player and DirectPlay", "script": "Enable-WindowsOptionalFeature -Online -FeatureName 'WindowsMediaPlayer' -All -NoRestart; Enable-WindowsOptionalFeature -Online -FeatureName 'DirectPlay' -All -NoRestart" },
-    "nfs": { "content": "Network File System (NFS)", "description": "Enable Services for NFS", "script": "Enable-WindowsOptionalFeature -Online -FeatureName 'ServicesForNFS-ClientOnly' -All -NoRestart; Enable-WindowsOptionalFeature -Online -FeatureName 'ClientForNFS-Infrastructure' -All -NoRestart" },
-    "registry_backup": { "content": "Registry Backup (Daily Task 12:30am)", "description": "Schedule daily registry backup task", "script": "schtasks /create /tn 'Registry Backup' /tr 'regedit /e C:\\Windows\\System32\\config\\RegBack\\registry_backup.reg' /sc daily /st 00:30 /f" },
-    "sandbox": { "content": "Windows Sandbox", "description": "Enable Windows Sandbox", "script": "Enable-WindowsOptionalFeature -Online -FeatureName Containers-DisposableClientVM -All -NoRestart" },
-    "wsl": { "content": "Windows Subsystem for Linux (WSL)", "description": "Enable WSL2 and Virtual Machine Platform", "script": "Enable-WindowsOptionalFeature -Online -FeatureName Microsoft-Windows-Subsystem-Linux -All -NoRestart; Enable-WindowsOptionalFeature -Online -FeatureName VirtualMachinePlatform -All -NoRestart" }
-  },
-  "Fixes": {
-    "autologon": { "content": "AutoLogon - Run", "description": "Open the Autologon configuration tool", "script": "Start-Process 'https://live.sysinternals.com/Autologon.exe'" },
-    "reset_network": { "content": "Network - Reset", "description": "Reset TCP/IP, Winsock, flush DNS", "script": "netsh winsock reset; netsh int ip reset; ipconfig /release; ipconfig /renew; ipconfig /flushdns" },
-    "ntp_server": { "content": "NTP Server - Enable", "description": "Sync time with pool.ntp.org", "script": "w32tm /config /manualpeerlist:'pool.ntp.org' /syncfromflags:manual /reliable:yes /update; w32tm /resync" },
-    "sfc_scan": { "content": "System Corruption Scan - Run", "description": "Run SFC scan to check system files", "script": "sfc /scannow" },
-    "system_repair": { "content": "System Repair - Full (Chkdsk + SFC + DISM)", "description": "Run chkdsk, SFC, and DISM repair", "script": "chkdsk /scan; sfc /scannow; dism /online /cleanup-image /restorehealth" },
-    "update_repair": { "content": "Windows Update - Full Repair", "description": "Complete Windows Update component repair", "script": "net stop wuauserv /y; net stop cryptSvc /y; net stop bits /y; net stop msiserver /y; Ren C:\\Windows\\SoftwareDistribution SoftwareDistribution.old; Ren C:\\Windows\\System32\\catroot2 catroot2.old; netsh winsock reset; net start wuauserv; net start cryptSvc; net start bits; net start msiserver" },
-    "reset_wu": { "content": "Windows Update - Reset", "description": "Reset Windows Update components", "script": "net stop wuauserv; net stop cryptSvc; net stop bits; net stop msiserver; Ren C:\\Windows\\SoftwareDistribution SoftwareDistribution.old; Ren C:\\Windows\\System32\\catroot2 catroot2.old; net start wuauserv; net start cryptSvc; net start bits; net start msiserver" },
-    "reinstall_winget": { "content": "WinGet - Reinstall", "description": "Reinstall WinGet package manager", "script": "Get-AppxPackage Microsoft.DesktopAppInstaller | Remove-AppxPackage; start 'ms-windows-store://pdp/?productid=9NBLGGH4NNS1'" }
-  }
-}
-
-'@ | ConvertFrom-Json
 $script:embedded_preferences = @'
 {
   "bsod_verbose": { "content": "BSoD Verbose Mode", "description": "Show detailed error on Blue Screen of Death.", "registry_on": [{"path":"HKLM:\\SYSTEM\\CurrentControlSet\\Control\\CrashControl","name":"DisplayParameters","value":1}], "registry_off": [{"path":"HKLM:\\SYSTEM\\CurrentControlSet\\Control\\CrashControl","name":"DisplayParameters","value":0}] },
@@ -1078,20 +1052,6 @@ $script:embedded_preferences = @'
   "s0_standby": { "content": "S0 Sleep Network Connectivity", "description": "Keep network connectivity during Modern Standby.", "registry_on": [{"path":"HKLM:\\SYSTEM\\CurrentControlSet\\Control\\Session Manager\\Power","name":"NetworkConnectivityInStandby","value":1}], "registry_off": [{"path":"HKLM:\\SYSTEM\\CurrentControlSet\\Control\\Session Manager\\Power","name":"NetworkConnectivityInStandby","value":0}] },
   "s3_sleep": { "content": "S3 Sleep", "description": "Enable traditional S3 sleep state.", "registry_on": [{"path":"HKLM:\\SYSTEM\\CurrentControlSet\\Control\\Power","name":"PlatformAoAcOverride","value":0}], "registry_off": [{"path":"HKLM:\\SYSTEM\\CurrentControlSet\\Control\\Power","name":"PlatformAoAcOverride","value":1}] },
   "battery_percent": { "content": "System Tray Battery Percentage", "description": "Show battery percentage in system tray.", "registry_on": [{"path":"HKCU:\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Explorer\\Advanced","name":"ShowBatteryPercentage","value":1}], "registry_off": [{"path":"HKCU:\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Explorer\\Advanced","name":"ShowBatteryPercentage","value":0}] }
-}
-
-'@ | ConvertFrom-Json
-$script:embedded_dns = @'
-{
-  "Default_DHCP": { "description": "Default DHCP (reset to auto)" },
-  "Google": { "description": "Google Public DNS", "ipv4": ["8.8.8.8","8.8.4.4"], "ipv6": ["2001:4860:4860::8888","2001:4860:4860::8844"] },
-  "Cloudflare": { "description": "Cloudflare DNS (1.1.1.1)", "ipv4": ["1.1.1.1","1.0.0.1"], "ipv6": ["2606:4700:4700::1111","2606:4700:4700::1001"] },
-  "Cloudflare_Malware": { "description": "Cloudflare Malware Protection", "ipv4": ["1.1.1.2","1.0.0.2"], "ipv6": ["2606:4700:4700::1112","2606:4700:4700::1002"] },
-  "Cloudflare_Malware_Adult": { "description": "Cloudflare Malware & Adult Protection", "ipv4": ["1.1.1.3","1.0.0.3"], "ipv6": ["2606:4700:4700::1113","2606:4700:4700::1003"] },
-  "Open_DNS": { "description": "Cisco OpenDNS", "ipv4": ["208.67.222.222","208.67.220.220"], "ipv6": ["2620:119:35::35","2620:119:53::53"] },
-  "Quad9": { "description": "Quad9 Security DNS", "ipv4": ["9.9.9.9","149.112.112.112"], "ipv6": ["2620:fe::fe","2620:fe::9"] },
-  "AdGuard_Ads_Trackers": { "description": "AdGuard DNS (Ads & Trackers)", "ipv4": ["94.140.14.14","94.140.15.15"], "ipv6": ["2a10:50c0::ad1:ff","2a10:50c0::ad2:ff"] },
-  "AdGuard_Ads_Trackers_Malware_Adult": { "description": "AdGuard DNS (Ads, Trackers, Malware, Adult)", "ipv4": ["94.140.14.15","94.140.15.16"], "ipv6": ["2a10:50c0::bad1:ff","2a10:50c0::bad2:ff"] }
 }
 
 '@ | ConvertFrom-Json
@@ -1138,33 +1098,6 @@ $script:embedded_tweaks = @'
     "WPFTweaksDeBloat": { "content": "Unwanted Pre-Installed Apps - Remove", "description": "Removes Windows pre-installed applications.", "appx_packages": ["Microsoft.WindowsFeedbackHub","Microsoft.BingNews","Microsoft.BingSearch","Microsoft.BingWeather","Clipchamp.Clipchamp","Microsoft.Todos","Microsoft.PowerAutomateDesktop","Microsoft.MicrosoftSolitaireCollection","Microsoft.WindowsSoundRecorder","Microsoft.MicrosoftStickyNotes","Microsoft.Windows.DevHome","Microsoft.Paint","Microsoft.OutlookForWindows","Microsoft.WindowsAlarms","Microsoft.StartExperiencesApp","Microsoft.GetHelp","Microsoft.ZuneMusic","MicrosoftCorporationII.QuickAssist","MSTeams"], "script": "`$TeamsPath = \"`$Env:LocalAppData\\Microsoft\\Teams\\Update.exe\"\nif (Test-Path `$TeamsPath) { Start-Process `$TeamsPath -ArgumentList -uninstall -wait; Remove-Item `$TeamsPath -Recurse -Force }" },
     "WPFTweaksWidget": { "content": "Widgets - Remove", "description": "Removes taskbar widgets.", "script": "Get-Process *Widget* | Stop-Process\nGet-AppxPackage Microsoft.WidgetsPlatformRuntime -AllUsers | Remove-AppxPackage -AllUsers\nGet-AppxPackage MicrosoftWindows.Client.WebExperience -AllUsers | Remove-AppxPackage -AllUsers" },
     "WPFTweaksWPBT": { "content": "Windows Platform Binary Table (WPBT) - Disable", "description": "Prevents vendors from executing code at boot without consent.", "registry": [{"path":"HKLM:\\SYSTEM\\CurrentControlSet\\Control\\Session Manager","name":"DisableWpbtExecution","value":1,"type":"DWord"}] }
-  }
-}
-
-'@ | ConvertFrom-Json
-$script:embedded_themes = @'
-{
-  "dark": {
-    "windowBackground": "#1C1C1E", "headerBackground": "#242426", "headerBorder": "#3A3A3C",
-    "footerBackground": "#242426", "footerBorder": "#3A3A3C",
-    "cardBackground": "#2C2C2E", "cardForeground": "#D4CEBC", "cardBorder": "#48484A",
-    "accentColor": "#4D9DE0", "accentHover": "#3A87C8",
-    "pageTitleColor": "#E8E0CC", "categoryHeaderColor": "#4D9DE0", "textMuted": "#8E8E93",
-    "textBoxBackground": "#2C2C2E", "textBoxForeground": "#D4CEBC", "textBoxBorder": "#48484A",
-    "dangerColor": "#C0392B", "dangerHover": "#962D22",
-    "selectedBorder": "#4D9DE0", "selectedBackground": "#162840",
-    "hoverBackground": "#262628", "secondaryBackground": "#242426", "secondaryHover": "#262628"
-  },
-  "light": {
-    "windowBackground": "#F4F8FC", "headerBackground": "#FFFFFF", "headerBorder": "#C4D9ED",
-    "footerBackground": "#FFFFFF", "footerBorder": "#C4D9ED",
-    "cardBackground": "#FFFFFF", "cardForeground": "#1A2733", "cardBorder": "#BDD3E8",
-    "accentColor": "#4D9DE0", "accentHover": "#3A87C8",
-    "pageTitleColor": "#1A2733", "categoryHeaderColor": "#4D9DE0", "textMuted": "#7A96AE",
-    "textBoxBackground": "#FFFFFF", "textBoxForeground": "#1A2733", "textBoxBorder": "#BDD3E8",
-    "dangerColor": "#C0392B", "dangerHover": "#962D22",
-    "selectedBorder": "#4D9DE0", "selectedBackground": "#E0EEFA",
-    "hoverBackground": "#EBF3FA", "secondaryBackground": "#FFFFFF", "secondaryHover": "#EBF3FA"
   }
 }
 
@@ -1225,6 +1158,73 @@ $script:embedded_apps = @'
     "sumatra": { "content": "Sumatra PDF", "winget": "SumatraPDF.SumatraPDF", "description": "Lightweight PDF and ebook reader" },
     "notion": { "content": "Notion", "winget": "Notion.Notion", "description": "All-in-one workspace for notes and tasks" }
   }
+}
+
+'@ | ConvertFrom-Json
+$script:embedded_themes = @'
+{
+  "dark": {
+    "windowBackground": "#1C1C1E", "headerBackground": "#242426", "headerBorder": "#3A3A3C",
+    "footerBackground": "#242426", "footerBorder": "#3A3A3C",
+    "cardBackground": "#2C2C2E", "cardForeground": "#D4CEBC", "cardBorder": "#48484A",
+    "accentColor": "#4D9DE0", "accentHover": "#3A87C8",
+    "pageTitleColor": "#E8E0CC", "categoryHeaderColor": "#4D9DE0", "textMuted": "#8E8E93",
+    "textBoxBackground": "#2C2C2E", "textBoxForeground": "#D4CEBC", "textBoxBorder": "#48484A",
+    "dangerColor": "#C0392B", "dangerHover": "#962D22",
+    "selectedBorder": "#4D9DE0", "selectedBackground": "#162840",
+    "hoverBackground": "#262628", "secondaryBackground": "#242426", "secondaryHover": "#262628"
+  },
+  "light": {
+    "windowBackground": "#F4F8FC", "headerBackground": "#FFFFFF", "headerBorder": "#C4D9ED",
+    "footerBackground": "#FFFFFF", "footerBorder": "#C4D9ED",
+    "cardBackground": "#FFFFFF", "cardForeground": "#1A2733", "cardBorder": "#BDD3E8",
+    "accentColor": "#4D9DE0", "accentHover": "#3A87C8",
+    "pageTitleColor": "#1A2733", "categoryHeaderColor": "#4D9DE0", "textMuted": "#7A96AE",
+    "textBoxBackground": "#FFFFFF", "textBoxForeground": "#1A2733", "textBoxBorder": "#BDD3E8",
+    "dangerColor": "#C0392B", "dangerHover": "#962D22",
+    "selectedBorder": "#4D9DE0", "selectedBackground": "#E0EEFA",
+    "hoverBackground": "#EBF3FA", "secondaryBackground": "#FFFFFF", "secondaryHover": "#EBF3FA"
+  }
+}
+
+'@ | ConvertFrom-Json
+$script:embedded_features = @'
+{
+  "Features": {
+    "dotnet": { "content": ".NET Framework (2, 3, 4)", "description": "Enable .NET Framework 3.5 and 4.8", "script": "Enable-WindowsOptionalFeature -Online -FeatureName NetFx3 -All -NoRestart; Enable-WindowsOptionalFeature -Online -FeatureName NetFx4-AdvSrvs -All -NoRestart" },
+    "hyperv": { "content": "Hyper-V", "description": "Enable Hyper-V virtualization", "script": "Enable-WindowsOptionalFeature -Online -FeatureName Microsoft-Hyper-V-All -All -NoRestart" },
+    "f8_boot_enable": { "content": "Legacy F8 Boot Recovery - Enable", "description": "Enable legacy F8 boot menu", "script": "bcdedit /set {default} bootmenupolicy legacy" },
+    "f8_boot_disable": { "content": "Legacy F8 Boot Recovery - Disable", "description": "Disable legacy F8 boot menu", "script": "bcdedit /set {default} bootmenupolicy standard" },
+    "legacy_media": { "content": "Legacy Media Components (WMP, DirectPlay)", "description": "Enable Windows Media Player and DirectPlay", "script": "Enable-WindowsOptionalFeature -Online -FeatureName 'WindowsMediaPlayer' -All -NoRestart; Enable-WindowsOptionalFeature -Online -FeatureName 'DirectPlay' -All -NoRestart" },
+    "nfs": { "content": "Network File System (NFS)", "description": "Enable Services for NFS", "script": "Enable-WindowsOptionalFeature -Online -FeatureName 'ServicesForNFS-ClientOnly' -All -NoRestart; Enable-WindowsOptionalFeature -Online -FeatureName 'ClientForNFS-Infrastructure' -All -NoRestart" },
+    "registry_backup": { "content": "Registry Backup (Daily Task 12:30am)", "description": "Schedule daily registry backup task", "script": "schtasks /create /tn 'Registry Backup' /tr 'regedit /e C:\\Windows\\System32\\config\\RegBack\\registry_backup.reg' /sc daily /st 00:30 /f" },
+    "sandbox": { "content": "Windows Sandbox", "description": "Enable Windows Sandbox", "script": "Enable-WindowsOptionalFeature -Online -FeatureName Containers-DisposableClientVM -All -NoRestart" },
+    "wsl": { "content": "Windows Subsystem for Linux (WSL)", "description": "Enable WSL2 and Virtual Machine Platform", "script": "Enable-WindowsOptionalFeature -Online -FeatureName Microsoft-Windows-Subsystem-Linux -All -NoRestart; Enable-WindowsOptionalFeature -Online -FeatureName VirtualMachinePlatform -All -NoRestart" }
+  },
+  "Fixes": {
+    "autologon": { "content": "AutoLogon - Run", "description": "Open the Autologon configuration tool", "script": "Start-Process 'https://live.sysinternals.com/Autologon.exe'" },
+    "reset_network": { "content": "Network - Reset", "description": "Reset TCP/IP, Winsock, flush DNS", "script": "netsh winsock reset; netsh int ip reset; ipconfig /release; ipconfig /renew; ipconfig /flushdns" },
+    "ntp_server": { "content": "NTP Server - Enable", "description": "Sync time with pool.ntp.org", "script": "w32tm /config /manualpeerlist:'pool.ntp.org' /syncfromflags:manual /reliable:yes /update; w32tm /resync" },
+    "sfc_scan": { "content": "System Corruption Scan - Run", "description": "Run SFC scan to check system files", "script": "sfc /scannow" },
+    "system_repair": { "content": "System Repair - Full (Chkdsk + SFC + DISM)", "description": "Run chkdsk, SFC, and DISM repair", "script": "chkdsk /scan; sfc /scannow; dism /online /cleanup-image /restorehealth" },
+    "update_repair": { "content": "Windows Update - Full Repair", "description": "Complete Windows Update component repair", "script": "net stop wuauserv /y; net stop cryptSvc /y; net stop bits /y; net stop msiserver /y; Ren C:\\Windows\\SoftwareDistribution SoftwareDistribution.old; Ren C:\\Windows\\System32\\catroot2 catroot2.old; netsh winsock reset; net start wuauserv; net start cryptSvc; net start bits; net start msiserver" },
+    "reset_wu": { "content": "Windows Update - Reset", "description": "Reset Windows Update components", "script": "net stop wuauserv; net stop cryptSvc; net stop bits; net stop msiserver; Ren C:\\Windows\\SoftwareDistribution SoftwareDistribution.old; Ren C:\\Windows\\System32\\catroot2 catroot2.old; net start wuauserv; net start cryptSvc; net start bits; net start msiserver" },
+    "reinstall_winget": { "content": "WinGet - Reinstall", "description": "Reinstall WinGet package manager", "script": "Get-AppxPackage Microsoft.DesktopAppInstaller | Remove-AppxPackage; start 'ms-windows-store://pdp/?productid=9NBLGGH4NNS1'" }
+  }
+}
+
+'@ | ConvertFrom-Json
+$script:embedded_dns = @'
+{
+  "Default_DHCP": { "description": "Default DHCP (reset to auto)" },
+  "Google": { "description": "Google Public DNS", "ipv4": ["8.8.8.8","8.8.4.4"], "ipv6": ["2001:4860:4860::8888","2001:4860:4860::8844"] },
+  "Cloudflare": { "description": "Cloudflare DNS (1.1.1.1)", "ipv4": ["1.1.1.1","1.0.0.1"], "ipv6": ["2606:4700:4700::1111","2606:4700:4700::1001"] },
+  "Cloudflare_Malware": { "description": "Cloudflare Malware Protection", "ipv4": ["1.1.1.2","1.0.0.2"], "ipv6": ["2606:4700:4700::1112","2606:4700:4700::1002"] },
+  "Cloudflare_Malware_Adult": { "description": "Cloudflare Malware & Adult Protection", "ipv4": ["1.1.1.3","1.0.0.3"], "ipv6": ["2606:4700:4700::1113","2606:4700:4700::1003"] },
+  "Open_DNS": { "description": "Cisco OpenDNS", "ipv4": ["208.67.222.222","208.67.220.220"], "ipv6": ["2620:119:35::35","2620:119:53::53"] },
+  "Quad9": { "description": "Quad9 Security DNS", "ipv4": ["9.9.9.9","149.112.112.112"], "ipv6": ["2620:fe::fe","2620:fe::9"] },
+  "AdGuard_Ads_Trackers": { "description": "AdGuard DNS (Ads & Trackers)", "ipv4": ["94.140.14.14","94.140.15.15"], "ipv6": ["2a10:50c0::ad1:ff","2a10:50c0::ad2:ff"] },
+  "AdGuard_Ads_Trackers_Malware_Adult": { "description": "AdGuard DNS (Ads, Trackers, Malware, Adult)", "ipv4": ["94.140.14.15","94.140.15.16"], "ipv6": ["2a10:50c0::bad1:ff","2a10:50c0::bad2:ff"] }
 }
 
 '@ | ConvertFrom-Json
@@ -1355,22 +1355,23 @@ $script:embeddedXaml = @'
             </Style>
             <Style x:Key="FeatureCard" TargetType="Button">
                 <Setter Property="Margin" Value="5"/>
-                <Setter Property="Padding" Value="12,10"/>
+                <Setter Property="Padding" Value="14,12"/>
                 <Setter Property="Background" Value="{DynamicResource cardBackground}"/>
                 <Setter Property="Foreground" Value="{DynamicResource cardForeground}"/>
                 <Setter Property="BorderBrush" Value="{DynamicResource cardBorder}"/>
                 <Setter Property="BorderThickness" Value="1"/>
                 <Setter Property="MinWidth" Value="280"/>
                 <Setter Property="Cursor" Value="Hand"/>
+                <Setter Property="TextBlock.FontSize" Value="13"/>
                 <Setter Property="Template">
                     <Setter.Value>
                         <ControlTemplate TargetType="Button">
-                            <Border Background="{TemplateBinding Background}" BorderBrush="{TemplateBinding BorderBrush}" BorderThickness="{TemplateBinding BorderThickness}" CornerRadius="6" Padding="{TemplateBinding Padding}">
-                                <ContentPresenter HorizontalAlignment="Left" VerticalAlignment="Center"/>
+                            <Border x:Name="RootBorder" Background="{TemplateBinding Background}" BorderBrush="{TemplateBinding BorderBrush}" BorderThickness="{TemplateBinding BorderThickness}" CornerRadius="6" Padding="{TemplateBinding Padding}">
+                                <ContentPresenter HorizontalAlignment="Stretch" VerticalAlignment="Center"/>
                             </Border>
                             <ControlTemplate.Triggers>
                                 <Trigger Property="IsMouseOver" Value="True">
-                                    <Setter Property="Background" Value="{DynamicResource hoverBackground}"/>
+                                    <Setter TargetName="RootBorder" Property="Background" Value="{DynamicResource hoverBackground}"/>
                                     <Setter Property="BorderBrush" Value="{DynamicResource accentColor}"/>
                                 </Trigger>
                             </ControlTemplate.Triggers>
