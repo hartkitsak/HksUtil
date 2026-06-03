@@ -1,26 +1,21 @@
 if ($controls["BtnTerminalDotfiles"]) {
     $controls["BtnTerminalDotfiles"].Add_Click({
-        $profilePath = Join-Path $env:USERPROFILE ".config\powershell\profile.ps1"
-        $dir = Split-Path $profilePath -Parent
-        if (-not (Test-Path $dir)) { New-Item $dir -ItemType Directory -Force | Out-Null }
-        $content = @"
-# HksUtil Terminal Profile
-Set-Alias hksutil "& '$script:appRoot\app.ps1'"
-function Invoke-HksUtil { & '$script:appRoot\app.ps1' }
-"@
-        [System.IO.File]::WriteAllText($profilePath, $content, [System.Text.UTF8Encoding]::new($false))
-        Write-Log "Terminal profile installed: $profilePath" "Success"
-        Show-Info "Terminal Profile" "Profile installed to:`n$profilePath"
+        Write-Log "Installing Nova profile..." "Info"
+        try {
+            $cmd = 'irm https://raw.githubusercontent.com/hartkitsak/nova/master/install.ps1 | iex'
+            Start-Process powershell.exe -ArgumentList "-NoProfile -ExecutionPolicy Bypass -Command `"$cmd`"" -NoNewWindow:$false
+            Write-Log "Nova installer launched in new window." "Success"
+        } catch { Write-Log "Failed to launch Nova installer: $_" "Error" }
     })
 }
 
 if ($controls["BtnUninstallTerminal"]) {
     $controls["BtnUninstallTerminal"].Add_Click({
-        $profilePath = Join-Path $env:USERPROFILE ".config\powershell\profile.ps1"
-        if (Test-Path $profilePath) {
-            Remove-Item $profilePath -Force
-            Write-Log "Terminal profile removed." "Success"
-            Show-Info "Terminal Profile" "Profile removed."
-        } else { Write-Log "No profile found at $profilePath" "Warn"; Show-Info "Terminal Profile" "No profile found." }
+        Write-Log "Uninstalling Nova profile..." "Info"
+        try {
+            $cmd = 'irm https://raw.githubusercontent.com/hartkitsak/nova/master/uninstall.ps1 | iex'
+            Start-Process powershell.exe -ArgumentList "-NoProfile -ExecutionPolicy Bypass -Command `"$cmd`"" -NoNewWindow:$false
+            Write-Log "Nova uninstaller launched in new window." "Success"
+        } catch { Write-Log "Failed to launch Nova uninstaller: $_" "Error" }
     })
 }

@@ -607,8 +607,8 @@
                                 <StackPanel>
                                     <TextBlock Text="Utilities" Style="{StaticResource CategoryHeader}" Margin="0,0,0,10"/>
                                     <Button x:Name="BtnCreateShortcut" Content="Create Desktop Shortcut" Style="{StaticResource ActionBtn}" HorizontalAlignment="Left" Width="220"/>
-                                    <Button x:Name="BtnTerminalDotfiles" Content="Install Terminal Profile" Style="{StaticResource ActionBtn}" HorizontalAlignment="Left" Width="220"/>
-                                    <Button x:Name="BtnUninstallTerminal" Content="Uninstall Terminal Profile" Style="{StaticResource DangerBtn}" HorizontalAlignment="Left" Width="220"/>
+                                    <Button x:Name="BtnTerminalDotfiles" Content="Install Nova Profile" Style="{StaticResource ActionBtn}" HorizontalAlignment="Left" Width="220"/>
+                                    <Button x:Name="BtnUninstallTerminal" Content="Uninstall Nova Profile" Style="{StaticResource DangerBtn}" HorizontalAlignment="Left" Width="220"/>
                                 </StackPanel>
                             </Border>
                         </StackPanel>
