@@ -33,6 +33,7 @@ function Write-Log {
         "Cmd"     { "Cyan" }
     }
     Write-Host ("  {0,-5} {1}" -f $level, $Message) -ForegroundColor $color
+    if ($script:logLines) { $script:logLines.Add("$level $Message") }
 }
 
 function Show-Confirm {

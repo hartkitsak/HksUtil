@@ -68,12 +68,12 @@ if ($NoUI) {
             if ($Config -match "^https?://") { $importJson = Invoke-WebRequest -Uri $Config -UseBasicParsing | Select-Object -ExpandProperty Content | ConvertFrom-Json }
             else { $importJson = Get-Content $Config -Raw -Encoding UTF8 | ConvertFrom-Json }
             if ($importJson.AppSelections) {
-                foreach ($id in $importJson.AppSelections) {
-                    Write-Log "Headless install: $id" "Info"
                     Ensure-PackageManager "winget" | Out-Null
-                    winget install --id=$id --silent --accept-package-agreements --accept-source-agreements 2>&1 | Out-Null
+                    foreach ($id in $importJson.AppSelections) {
+                        Write-Log "Headless install: $id" "Info"
+                        winget install --id=$id --silent --accept-package-agreements --accept-source-agreements 2>&1 | Out-Null
+                    }
                 }
-            }
             Write-Log "Headless apply complete." "Success"
         } catch { Write-Log "Headless apply failed: $_" "Error" }
     } else { Write-Log "NoUI mode: use -Config <path> -Apply to apply." "Warn" }
@@ -109,7 +109,7 @@ if ($controls["TitleText"]) { $controls["TitleText"].Add_MouseLeftButtonDown({ $
 . "$PSScriptRoot\modules\install.ps1"
 . "$PSScriptRoot\modules\features.ps1"
 
-if ($controls["BtnClearSearch"]) { $controls["BtnClearSearch"].Add_Click({ $controls["SearchBox"].Text = ""; $controls["SearchBox"].Focus() }) }
+if ($controls["BtnClearSearch"]) { $controls["BtnClearSearch"].Add_Click({ if ($controls["SearchBox"]) { $controls["SearchBox"].Text = ""; $controls["SearchBox"].Focus() } }) }
 if ($controls["BtnSelectAll"]) { $controls["BtnSelectAll"].Add_Click({ foreach ($cb in $appCheckboxes) { if ($cb.Visibility -eq "Visible") { $cb.IsChecked = $true } }; Update-SelectedCount; Write-Log "All visible apps selected." "Info" }) }
 if ($controls["BtnClearSelection"]) { $controls["BtnClearSelection"].Add_Click({ foreach ($cb in $appCheckboxes) { $cb.IsChecked = $false }; Update-SelectedCount; Write-Log "Selection cleared." "Info" }) }
 if ($controls["BtnCollapseAll"]) {
@@ -148,7 +148,7 @@ if ($Config -and -not $Apply) {
         else { Write-Log "Config path not found: $Config" "Warn"; $importJson = $null }
         if ($importJson) {
             if ($importJson.AppSelections) { foreach ($cb in $appCheckboxes) { $cb.IsChecked = @($importJson.AppSelections) -contains $cb.Tag } }
-            if ($importJson.PreferenceStates) { foreach ($pk in $importJson.PreferenceStates.PSObject.Properties.Name) { if ($prefCheckboxes[$pk]) { $prefCheckboxes[$pk].IsChecked = [bool]$importJson.PreferenceStates.$pk } } }
+            if ($importJson.PreferenceStates) { foreach ($pk in $importJson.PreferenceStates.PSObject.Properties.Name) { if ($prefCheckboxes[$pk]) { $prefCheckboxes[$pk].IsChecked = $importJson.PreferenceStates.$pk -eq $true } } }
             Update-SelectedCount; Write-Log "Config loaded from $Config" "Success"
         }
     } catch { Write-Log "Config load failed: $_" "Error" }

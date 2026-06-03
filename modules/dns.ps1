@@ -8,7 +8,7 @@ if ($controls["DnsRadioPanel"] -and $dnsConfig) {
     foreach ($dnsName in $script:dnsNames) {
         $dns = $dnsConfig.$dnsName
         $rb = New-Object System.Windows.Controls.RadioButton
-        $rb.Tag = $dnsName; $rb.Style = $window.FindResource("DnsCardStyle"); $rb.GroupName = "DnsProvider"
+        $rb.Tag = $dnsName; $rb.Style = Get-WpfResource "DnsCardStyle"; $rb.GroupName = "DnsProvider"
         $sp = New-Object System.Windows.Controls.StackPanel; $sp.Orientation = "Horizontal"; $sp.VerticalAlignment = "Center"
         $nameTb = New-Object System.Windows.Controls.TextBlock; $nameTb.Text = "$dnsName - $($dns.description)"; $nameTb.FontSize = 12; $nameTb.FontWeight = "SemiBold"; $nameTb.VerticalAlignment = "Center"; $nameTb.SetResourceReference([System.Windows.Controls.TextBlock]::ForegroundProperty, "pageTitleColor")
         $sp.Children.Add($nameTb) | Out-Null

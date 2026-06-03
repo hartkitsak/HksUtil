@@ -32,11 +32,6 @@ function Apply-Filters {
     Write-Log "Filters applied." "Success"
 }
 
-if ($controls["ChkShowInstalled"]) {
-    $controls["ChkShowInstalled"].Add_Checked({ Apply-Filters })
-    $controls["ChkShowInstalled"].Add_Unchecked({ Apply-Filters })
-}
-
 if ($controls["SearchBox"]) {
     $controls["SearchBox"].Add_TextChanged({
         Apply-Filters

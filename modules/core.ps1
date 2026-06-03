@@ -9,6 +9,9 @@ $sync.selectedFeatures = [System.Collections.Generic.List[string]]::new()
 $sync.currentTab = "Install"
 
 $script:importInProgress = $false
+$script:logLines = [System.Collections.Generic.List[string]]::new()
+
+function Get-WpfResource { param($Key) try { $window.FindResource($Key) } catch { Write-Log "Missing style: $Key" "Warn"; $null } }
 
 function Invoke-WPFUIThread {
     param([ScriptBlock]$ScriptBlock)
@@ -65,8 +68,7 @@ function Set-ProgressTaskbar {
 
 function Update-InstalledCache {
     Write-Log "Updating installed apps cache..." "Info"
-$script:installedAppIds = @{}
-$script:logLines = [System.Collections.Generic.List[string]]::new()
+    $script:installedAppIds = @{}
     if (-not (Get-Command winget -ErrorAction SilentlyContinue)) { Write-Log "winget not available." "Warn"; return }
     try {
         $output = winget list --accept-source-agreements 2>&1 | Out-String

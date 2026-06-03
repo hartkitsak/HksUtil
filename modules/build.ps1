@@ -13,7 +13,7 @@ if (($controls["AppPanel1"] -and $controls["AppPanel2"] -and $controls["AppPanel
     foreach ($category in $appsConfig.PSObject.Properties.Name) {
         $catCount = ($appsConfig.$category.PSObject.Properties.Name).Count
         $header = New-Object System.Windows.Controls.TextBlock
-        $header.Text = "- $($category.ToUpper()) ($catCount)"; $header.Style = $window.FindResource("CategoryHeader"); $header.Cursor = "Hand"
+        $header.Text = "- $($category.ToUpper()) ($catCount)"; $header.Style = Get-WpfResource "CategoryHeader"; $header.Cursor = "Hand"
         $header.Tag = $category
         $appPanels[$appPanelIndex].Children.Add($header) | Out-Null
         $script:categoryItems[$category] = @()
@@ -29,7 +29,7 @@ if (($controls["AppPanel1"] -and $controls["AppPanel2"] -and $controls["AppPanel
         foreach ($appKey in $appsConfig.$category.PSObject.Properties.Name) {
             $app = $appsConfig.$category.$appKey
             $cb = New-Object System.Windows.Controls.CheckBox
-            $cb.Content = $app.content; $cb.Tag = $app.winget; $cb.Style = $window.FindResource("TweakCheckBox")
+            $cb.Content = $app.content; $cb.Tag = $app.winget; $cb.Style = Get-WpfResource "TweakCheckBox"
             if ($app.description) { $cb.ToolTip = "$($app.content)`n`n$($app.description)`n`nID: $($app.winget)" }
             $cb.Add_Checked({ Update-SelectedCount })
             $cb.Add_Unchecked({ Update-SelectedCount })
@@ -73,7 +73,7 @@ if ($controls["PrefsPanel1"] -and $controls["PrefsPanel2"] -and $controls["Prefs
     foreach ($prefKey in $prefsConfig.PSObject.Properties.Name) {
         $pref = $prefsConfig.$prefKey
         $cb = New-Object System.Windows.Controls.CheckBox
-        $cb.Content = $pref.content; $cb.Tag = $prefKey; $cb.Style = $window.FindResource("ToggleSwitch")
+        $cb.Content = $pref.content; $cb.Tag = $prefKey; $cb.Style = Get-WpfResource "ToggleSwitch"
         if ($pref.description) { $cb.ToolTip = $pref.description }
         $currentState = $null
         $hasRegistryOn = $pref.PSObject.Properties.Name -contains "registry_on" -and $pref.registry_on -and $pref.registry_on.Count -gt 0
@@ -84,12 +84,12 @@ if ($controls["PrefsPanel1"] -and $controls["PrefsPanel2"] -and $controls["Prefs
         $cb.IsChecked = if ($hasRegistryOn) { $currentState -eq $pref.registry_on[0].value } else { $false }
         $cb.Add_Checked({
             $pk = $this.Tag; $p = $prefsConfig.$pk
-            if ($p.PSObject.Properties.Name -contains "registry_on") { foreach ($r in $p.registry_on) { try { if (!(Test-Path $r.path)) { New-Item $r.path -Force | Out-Null }; Set-ItemProperty $r.path -Name $r.name -Value $r.value -Force } catch {} } }
+            if ($p.PSObject.Properties.Name -contains "registry_on") { foreach ($r in $p.registry_on) { try { if (!(Test-Path $r.path)) { New-Item $r.path -Force | Out-Null }; $t = if ($r.type) { $r.type } else { "String" }; Set-ItemProperty $r.path -Name $r.name -Value $r.value -Type $t -Force } catch {} } }
             Write-Log "Pref ON: $($p.content)" "Success"
         })
         $cb.Add_Unchecked({
             $pk = $this.Tag; $p = $prefsConfig.$pk
-            if ($p.PSObject.Properties.Name -contains "registry_off") { foreach ($r in $p.registry_off) { try { if (!(Test-Path $r.path)) { New-Item $r.path -Force | Out-Null }; Set-ItemProperty $r.path -Name $r.name -Value $r.value -Force } catch {} } }
+            if ($p.PSObject.Properties.Name -contains "registry_off") { foreach ($r in $p.registry_off) { try { if (!(Test-Path $r.path)) { New-Item $r.path -Force | Out-Null }; $t = if ($r.type) { $r.type } else { "String" }; Set-ItemProperty $r.path -Name $r.name -Value $r.value -Type $t -Force } catch {} } }
             Write-Log "Pref OFF: $($p.content)" "Warn"
         })
         $prefPanels[$panelIndex].Children.Add($cb) | Out-Null
@@ -110,7 +110,7 @@ if ($controls["TweaksPanel1"] -and $controls["TweaksPanel2"] -and $controls["Twe
         $panels[$panelIndex].Children.Add($header) | Out-Null
         foreach ($tweakKey in $group.PSObject.Properties.Name) {
             $tweak = $group.$tweakKey
-            $cb = New-Object System.Windows.Controls.CheckBox; $cb.Content = $tweak.content; $cb.Tag = $tweakKey; $cb.Style = $window.FindResource("TweakCheckBox")
+            $cb = New-Object System.Windows.Controls.CheckBox; $cb.Content = $tweak.content; $cb.Tag = $tweakKey; $cb.Style = Get-WpfResource "TweakCheckBox"
             if ($tweak.description) { $cb.ToolTip = $tweak.description }
             $panels[$panelIndex].Children.Add($cb) | Out-Null
             $tweakCheckboxes += $cb
@@ -126,7 +126,7 @@ if ($controls["FeaturesPanel1"] -and $controls["FeaturesPanel2"] -and $controls[
     $featPanels = @($controls["FeaturesPanel1"], $controls["FeaturesPanel2"], $controls["FeaturesPanel3"])
     foreach ($featKey in $featuresConfig.Features.PSObject.Properties.Name) {
         $feat = $featuresConfig.Features.$featKey
-        $cb = New-Object System.Windows.Controls.CheckBox; $cb.Content = $feat.content; $cb.Tag = $featKey; $cb.Style = $window.FindResource("TweakCheckBox")
+        $cb = New-Object System.Windows.Controls.CheckBox; $cb.Content = $feat.content; $cb.Tag = $featKey; $cb.Style = Get-WpfResource "TweakCheckBox"
         if ($feat.description) { $cb.ToolTip = $feat.description }
         $featPanels[$panelIndex].Children.Add($cb) | Out-Null
         $featuresCheckboxes += $cb
@@ -137,7 +137,7 @@ if ($controls["FeaturesPanel1"] -and $controls["FeaturesPanel2"] -and $controls[
 if ($controls["FixesWrapPanel"] -and $featuresConfig -and $featuresConfig.PSObject.Properties.Name -contains "Fixes") {
     foreach ($fixKey in $featuresConfig.Fixes.PSObject.Properties.Name) {
         $fix = $featuresConfig.Fixes.$fixKey
-        $btn = New-Object System.Windows.Controls.Button; $btn.Style = $window.FindResource("FeatureCard"); $btn.Content = $fix.content; $btn.ToolTip = $fix.description; $btn.Tag = $fix
+        $btn = New-Object System.Windows.Controls.Button; $btn.Style = Get-WpfResource "FeatureCard"; $btn.Content = $fix.content; $btn.ToolTip = $fix.description; $btn.Tag = $fix
         $btn.Add_Click({
             $f = $this.Tag
             if (-not (Show-Confirm "Run Fix" "Execute: $($f.content)?")) { return }
@@ -173,7 +173,7 @@ if ($controls["LegacyPanel1"] -and $controls["LegacyPanel2"] -and $controls["Leg
     $legacyPanelsArr = @($controls["LegacyPanel1"], $controls["LegacyPanel2"], $controls["LegacyPanel3"])
     $panelIndex = 0
     foreach ($panel in $legacyPanels) {
-        $btn = New-Object System.Windows.Controls.Button; $btn.Style = $window.FindResource("FeatureCard"); $btn.ToolTip = "$($panel.Name)`n$($panel.Desc)`n`nLaunch: $($panel.Command)"; $btn.Tag = $panel.Command; $btn.Width = 380
+        $btn = New-Object System.Windows.Controls.Button; $btn.Style = Get-WpfResource "FeatureCard"; $btn.ToolTip = "$($panel.Name)`n$($panel.Desc)`n`nLaunch: $($panel.Command)"; $btn.Tag = $panel.Command; $btn.Width = 380
         $sp = New-Object System.Windows.Controls.StackPanel; $sp.Orientation = "Horizontal"
         $textSp = New-Object System.Windows.Controls.StackPanel; $textSp.Orientation = "Vertical"; $textSp.VerticalAlignment = "Center"
         $nameTb = New-Object System.Windows.Controls.TextBlock; $nameTb.Text = $panel.Name; $nameTb.FontSize = 13; $nameTb.FontWeight = "SemiBold"; $nameTb.SetResourceReference([System.Windows.Controls.TextBlock]::ForegroundProperty, "pageTitleColor"); $textSp.Children.Add($nameTb) | Out-Null
