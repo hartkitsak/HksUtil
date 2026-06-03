@@ -1,3 +1,5 @@
+$script:logLevel = "Success"
+
 function Show-HksUtilLogo {
     Write-Host @"
 HH   HH KK   KK  SSSSSS  UU   UU TTTTTT IIIIII LL
@@ -16,6 +18,7 @@ function Write-Log {
     param([string]$Message, [string]$Type = "Info")
     if ($Type -eq "Header") {
         Write-Host "`n  $Message" -ForegroundColor Cyan
+        if ($script:logLines) { $script:logLines.Add("  $Message") }
         return
     }
     $level = switch ($Type) {
@@ -32,8 +35,9 @@ function Write-Log {
         "Warn"    { "Yellow" }
         "Cmd"     { "Cyan" }
     }
-    Write-Host ("  {0,-5} {1}" -f $level, $Message) -ForegroundColor $color
     if ($script:logLines) { $script:logLines.Add("$level $Message") }
+    if ($Type -eq "Info" -and $script:logLevel -ne "Info") { return }
+    Write-Host ("  {0,-5} {1}" -f $level, $Message) -ForegroundColor $color
 }
 
 function Show-Confirm {

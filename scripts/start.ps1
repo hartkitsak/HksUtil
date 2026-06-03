@@ -10,7 +10,8 @@ param(
     [switch]$Noui,
     [switch]$Offline,
     [switch]$Apply,
-    [string]$Export
+    [string]$Export,
+    [switch]$Verbose
 )
 
 Add-Type -AssemblyName PresentationFramework

@@ -28,11 +28,12 @@ foreach ($navName in $navNames) {
     } else { Write-Log "Navigation button $btnName not found." "Warn" }
 }
 
-$window.Add_KeyDown({
+if ($window) { $window.Add_KeyDown({
     param($sender, $e)
-    if ($e.Key -eq "Escape" -and $controls["SearchBox"]) {
-        $controls["SearchBox"].Text = ""
-        Show-NavPanel $navNames[0]
-        $e.Handled = $true
-    }
-})
+        if ($e.Key -eq "Escape" -and $controls["SearchBox"]) {
+            $controls["SearchBox"].Text = ""
+            Show-NavPanel $navNames[0]
+            $e.Handled = $true
+        }
+    })
+}

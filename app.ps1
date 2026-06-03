@@ -3,7 +3,8 @@ param(
     [switch]$Noui,
     [switch]$Offline,
     [switch]$Apply,
-    [string]$Export
+    [string]$Export,
+    [switch]$Verbose
 )
 
 Add-Type -AssemblyName PresentationFramework
@@ -33,6 +34,7 @@ $script:appRoot = $PSScriptRoot
 $script:NoUI = $Noui
 
 . "$PSScriptRoot\modules\logger.ps1"
+if ($Verbose) { $script:logLevel = "Info" }
 . "$PSScriptRoot\modules\core.ps1"
 . "$PSScriptRoot\modules\theme.ps1"
 
@@ -41,16 +43,14 @@ Show-HksUtilLogo
 $configPath = Join-Path $PSScriptRoot "config"
 Write-Log "Loading configs..." "Info"
 
-try {
-    $script:cfg = Get-Content (Join-Path $configPath "config.json") -Raw -Encoding UTF8 | ConvertFrom-Json
-    $script:appsConfig = if ($script:cfg.apps) { $script:cfg.apps } else { @{} }
-    $script:tweaksConfig = if ($script:cfg.tweaks) { $script:cfg.tweaks } else { @{} }
-    $script:dnsConfig = if ($script:cfg.dns) { $script:cfg.dns } else { @{} }
-    $script:prefsConfig = if ($script:cfg.preferences) { $script:cfg.preferences } else { @{} }
-    $script:featuresConfig = if ($script:cfg.features) { $script:cfg.features } else { @{} }
-    $script:themesConfig = if ($script:cfg.themes) { $script:cfg.themes } else { @{} }
-    Write-Log "config.json loaded ($($script:cfg.PSObject.Properties.Name.Count) sections)" "Success"
-} catch { Write-Log "config.json failed: $_" "Error"; $script:cfg = @{} }
+try { $script:metaConfig = Get-Content (Join-Path $configPath "meta.json") -Raw -Encoding UTF8 | ConvertFrom-Json } catch { $script:metaConfig = @{}; Write-Log "meta.json failed: $_" "Warn" }
+try { $script:themesConfig = Get-Content (Join-Path $configPath "themes.json") -Raw -Encoding UTF8 | ConvertFrom-Json } catch { $script:themesConfig = @{}; Write-Log "themes.json failed: $_" "Warn" }
+try { $script:appsConfig = Get-Content (Join-Path $configPath "apps.json") -Raw -Encoding UTF8 | ConvertFrom-Json } catch { $script:appsConfig = @{}; Write-Log "apps.json failed: $_" "Warn" }
+try { $script:tweaksConfig = Get-Content (Join-Path $configPath "tweaks.json") -Raw -Encoding UTF8 | ConvertFrom-Json } catch { $script:tweaksConfig = @{}; Write-Log "tweaks.json failed: $_" "Warn" }
+try { $script:dnsConfig = Get-Content (Join-Path $configPath "dns.json") -Raw -Encoding UTF8 | ConvertFrom-Json } catch { $script:dnsConfig = @{}; Write-Log "dns.json failed: $_" "Warn" }
+try { $script:prefsConfig = Get-Content (Join-Path $configPath "preferences.json") -Raw -Encoding UTF8 | ConvertFrom-Json } catch { $script:prefsConfig = @{}; Write-Log "preferences.json failed: $_" "Warn" }
+try { $script:featuresConfig = Get-Content (Join-Path $configPath "features.json") -Raw -Encoding UTF8 | ConvertFrom-Json } catch { $script:featuresConfig = @{}; Write-Log "features.json failed: $_" "Warn" }
+Write-Log "Config files loaded." "Success"
 
 if ($Export) {
     $sel = @{ CheckedApps = @(); CheckedTweaks = @() }

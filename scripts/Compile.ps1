@@ -36,26 +36,38 @@ foreach ($mod in $moduleOrder) {
     }
 }
 
-# 3. Embed config.json
-$configPath = Join-Path $root "config\config.json"
-if (Test-Path $configPath) {
-    $configJson = Get-Content $configPath -Raw -Encoding UTF8
-    $script.Add(@"
-`$script:embeddedConfig = @'
-$configJson
+# 3. Embed individual config files
+$configSections = @{
+    "meta"        = "meta.json"
+    "themes"      = "themes.json"
+    "apps"        = "apps.json"
+    "tweaks"      = "tweaks.json"
+    "dns"         = "dns.json"
+    "preferences" = "preferences.json"
+    "features"    = "features.json"
+}
+$configBase = Join-Path $root "config"
+foreach ($key in $configSections.Keys) {
+    $cfgPath = Join-Path $configBase $configSections[$key]
+    if (Test-Path $cfgPath) {
+        $cfgJson = Get-Content $cfgPath -Raw -Encoding UTF8
+        $script.Add(@"
+`$script:embedded_$key = @'
+$cfgJson
 '@ | ConvertFrom-Json
 "@)
-    $script.Add(@"
-`$script:appsConfig = if (`$script:embeddedConfig.apps) { `$script:embeddedConfig.apps } else { @{} }
-`$script:tweaksConfig = if (`$script:embeddedConfig.tweaks) { `$script:embeddedConfig.tweaks } else { @{} }
-`$script:dnsConfig = if (`$script:embeddedConfig.dns) { `$script:embeddedConfig.dns } else { @{} }
-`$script:prefsConfig = if (`$script:embeddedConfig.preferences) { `$script:embeddedConfig.preferences } else { @{} }
-`$script:featuresConfig = if (`$script:embeddedConfig.features) { `$script:embeddedConfig.features } else { @{} }
-`$script:themesConfig = if (`$script:embeddedConfig.themes) { `$script:embeddedConfig.themes } else { @{} }
-"@)
-} else {
-    Write-Warning "config/config.json not found."
+    } else {
+        Write-Warning "config/$($configSections[$key]) not found."
+    }
 }
+$script.Add(@"
+`$script:appsConfig = if (`$script:embedded_apps) { `$script:embedded_apps } else { @{} }
+`$script:tweaksConfig = if (`$script:embedded_tweaks) { `$script:embedded_tweaks } else { @{} }
+`$script:dnsConfig = if (`$script:embedded_dns) { `$script:embedded_dns } else { @{} }
+`$script:prefsConfig = if (`$script:embedded_preferences) { `$script:embedded_preferences } else { @{} }
+`$script:featuresConfig = if (`$script:embedded_features) { `$script:embedded_features } else { @{} }
+`$script:themesConfig = if (`$script:embedded_themes) { `$script:embedded_themes } else { @{} }
+"@)
 
 # 4. Embed xaml/ui.xaml
 $xamlPath = Join-Path $root "xaml\ui.xaml"
@@ -72,6 +84,7 @@ $xamlContent
 
 # 5. Append compiled main body
 $script.Add(@'
+if ($Verbose) { $script:logLevel = "Info" }
 $script:appRoot = Split-Path $MyInvocation.MyCommand.Path -Parent
 Show-HksUtilLogo
 Write-Log "Starting HksUtil v$script:hksVersion..." "Header"

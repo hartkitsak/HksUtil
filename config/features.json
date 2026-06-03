@@ -1,0 +1,23 @@
+{
+  "Features": {
+    "dotnet": { "content": ".NET Framework (2, 3, 4)", "description": "Enable .NET Framework 3.5 and 4.8", "script": "Enable-WindowsOptionalFeature -Online -FeatureName NetFx3 -All -NoRestart; Enable-WindowsOptionalFeature -Online -FeatureName NetFx4-AdvSrvs -All -NoRestart" },
+    "hyperv": { "content": "Hyper-V", "description": "Enable Hyper-V virtualization", "script": "Enable-WindowsOptionalFeature -Online -FeatureName Microsoft-Hyper-V-All -All -NoRestart" },
+    "f8_boot_enable": { "content": "Legacy F8 Boot Recovery - Enable", "description": "Enable legacy F8 boot menu", "script": "bcdedit /set {default} bootmenupolicy legacy" },
+    "f8_boot_disable": { "content": "Legacy F8 Boot Recovery - Disable", "description": "Disable legacy F8 boot menu", "script": "bcdedit /set {default} bootmenupolicy standard" },
+    "legacy_media": { "content": "Legacy Media Components (WMP, DirectPlay)", "description": "Enable Windows Media Player and DirectPlay", "script": "Enable-WindowsOptionalFeature -Online -FeatureName 'WindowsMediaPlayer' -All -NoRestart; Enable-WindowsOptionalFeature -Online -FeatureName 'DirectPlay' -All -NoRestart" },
+    "nfs": { "content": "Network File System (NFS)", "description": "Enable Services for NFS", "script": "Enable-WindowsOptionalFeature -Online -FeatureName 'ServicesForNFS-ClientOnly' -All -NoRestart; Enable-WindowsOptionalFeature -Online -FeatureName 'ClientForNFS-Infrastructure' -All -NoRestart" },
+    "registry_backup": { "content": "Registry Backup (Daily Task 12:30am)", "description": "Schedule daily registry backup task", "script": "schtasks /create /tn 'Registry Backup' /tr 'regedit /e C:\\Windows\\System32\\config\\RegBack\\registry_backup.reg' /sc daily /st 00:30 /f" },
+    "sandbox": { "content": "Windows Sandbox", "description": "Enable Windows Sandbox", "script": "Enable-WindowsOptionalFeature -Online -FeatureName Containers-DisposableClientVM -All -NoRestart" },
+    "wsl": { "content": "Windows Subsystem for Linux (WSL)", "description": "Enable WSL2 and Virtual Machine Platform", "script": "Enable-WindowsOptionalFeature -Online -FeatureName Microsoft-Windows-Subsystem-Linux -All -NoRestart; Enable-WindowsOptionalFeature -Online -FeatureName VirtualMachinePlatform -All -NoRestart" }
+  },
+  "Fixes": {
+    "autologon": { "content": "AutoLogon - Run", "description": "Open the Autologon configuration tool", "script": "Start-Process 'https://live.sysinternals.com/Autologon.exe'" },
+    "reset_network": { "content": "Network - Reset", "description": "Reset TCP/IP, Winsock, flush DNS", "script": "netsh winsock reset; netsh int ip reset; ipconfig /release; ipconfig /renew; ipconfig /flushdns" },
+    "ntp_server": { "content": "NTP Server - Enable", "description": "Sync time with pool.ntp.org", "script": "w32tm /config /manualpeerlist:'pool.ntp.org' /syncfromflags:manual /reliable:yes /update; w32tm /resync" },
+    "sfc_scan": { "content": "System Corruption Scan - Run", "description": "Run SFC scan to check system files", "script": "sfc /scannow" },
+    "system_repair": { "content": "System Repair - Full (Chkdsk + SFC + DISM)", "description": "Run chkdsk, SFC, and DISM repair", "script": "chkdsk /scan; sfc /scannow; dism /online /cleanup-image /restorehealth" },
+    "update_repair": { "content": "Windows Update - Full Repair", "description": "Complete Windows Update component repair", "script": "net stop wuauserv /y; net stop cryptSvc /y; net stop bits /y; net stop msiserver /y; Ren C:\\Windows\\SoftwareDistribution SoftwareDistribution.old; Ren C:\\Windows\\System32\\catroot2 catroot2.old; netsh winsock reset; net start wuauserv; net start cryptSvc; net start bits; net start msiserver" },
+    "reset_wu": { "content": "Windows Update - Reset", "description": "Reset Windows Update components", "script": "net stop wuauserv; net stop cryptSvc; net stop bits; net stop msiserver; Ren C:\\Windows\\SoftwareDistribution SoftwareDistribution.old; Ren C:\\Windows\\System32\\catroot2 catroot2.old; net start wuauserv; net start cryptSvc; net start bits; net start msiserver" },
+    "reinstall_winget": { "content": "WinGet - Reinstall", "description": "Reinstall WinGet package manager", "script": "Get-AppxPackage Microsoft.DesktopAppInstaller | Remove-AppxPackage; start 'ms-windows-store://pdp/?productid=9NBLGGH4NNS1'" }
+  }
+}
