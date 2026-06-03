@@ -67,15 +67,15 @@ One-click access to 16 classic Windows tools: Control Panel, Device Manager, Dis
 
 ### ⚙️ Settings Dashboard
 - **DNS Switcher** — Google, Cloudflare, OpenDNS, Quad9, AdGuard
-- **Export/Import** — Save and restore app selections
-- **Terminal Profile** — Install PowerShell profile with `hksutil` command alias
+- **Export/Import** — Save and restore app/tweak/feature/preference selections
+- **Nova Profile** — Install PowerShell profile with `hksutil` alias via [nova](https://github.com/hartkitsak/nova)
 - **Auto-Apply** — Headless mode via `-Noui -Config <path> -Apply`
 
 ## Installation
 
 ### One-liner (Admin PowerShell)
 ```powershell
-irm "https://raw.githubusercontent.com/hartkitsak/HksUtil/main/launcher.ps1" | iex
+.\app.ps1
 ```
 
 ### Manual (clone)
@@ -96,7 +96,7 @@ cd HksUtil
 
 ### Compiled Single-File Mode
 ```powershell
-.\Compile.ps1       # produces hksutil.ps1
+.\scripts\Compile.ps1   # produces hksutil.ps1
 .\hksutil.ps1       # run the compiled version
 ```
 
@@ -127,36 +127,37 @@ cd HksUtil
 
 ```
 HksUtil/
-├── app.ps1                 # Entry point — auto-elevate, config load, XAML bootstrap
-├── launcher.ps1             # One-liner bootstrap for remote execution
-├── Compile.ps1              # Build script — merges modules + config + XAML into hksutil.ps1
+├── app.ps1                     # Entry point — auto-elevate, config load, XAML bootstrap
 ├── scripts/
-│   └── start.ps1            # Compiled script header template
+│   ├── start.ps1               # Compiled script header template
+│   └── Compile.ps1             # Build script — merges modules + config + XAML into hksutil.ps1
+├── docs/
+│   └── HKSUITL_PROJECT_DOCS.md # AI-oriented project documentation
 ├── config/
-│   └── config.json          # Unified configuration (apps, tweaks, themes, DNS)
+│   └── config.json             # Unified configuration (apps, tweaks, themes, DNS)
 ├── xaml/
-│   └── ui.xaml              # WPF layout (~660 lines)
-├── modules/
-│   ├── logger.ps1           # Terminal logging, message boxes
-│   ├── core.ps1             # Async dispatch, progress overlay, cache, headless mode
-│   ├── theme.ps1            # JSON → BrushConverter runtime theming
-│   ├── navigation.ps1       # Page switching, keyboard shortcuts
-│   ├── tweaks.ps1           # Tweak engine, undo log, System Restore integration
-│   ├── search.ps1           # Live search and installed filter
-│   ├── toolbar.ps1          # Title bar controls, gear menu handlers
-│   ├── dns.ps1              # DNS provider switcher
-│   ├── terminal.ps1         # Terminal input handler, profile management
-│   ├── utility.ps1          # Desktop shortcut creation
-│   ├── build.ps1            # Dynamic UI builder from config
-│   ├── install.ps1          # Batch install/uninstall engine
-│   └── features.ps1         # Windows feature toggles
-├── tests/                   # Pester test suite (32 tests, 7 files)
-├── lint/
-│   └── PSScriptAnalyser.ps1 # PSScriptAnalyzer configuration
+│   └── ui.xaml                 # WPF layout (~660 lines)
+├── modules/                    # 11 PowerShell modules
+│   ├── logger.ps1              # Terminal logging, message boxes
+│   ├── core.ps1                # Async dispatch, progress overlay, cache, headless mode
+│   ├── theme.ps1               # JSON → BrushConverter runtime theming
+│   ├── navigation.ps1          # Page switching, keyboard shortcuts
+│   ├── tweaks.ps1              # Tweak engine, undo log, System Restore integration
+│   ├── search.ps1              # Live search and installed filter
+│   ├── toolbar.ps1             # Title bar controls, gear menu handlers
+│   ├── dns.ps1                 # DNS provider switcher
+│   ├── terminal.ps1            # Terminal profile management
+│   ├── utility.ps1             # Desktop shortcut creation
+│   ├── build.ps1               # Dynamic UI builder from config
+│   ├── install.ps1             # Batch install/uninstall engine
+│   └── features.ps1            # Windows feature toggles
+├── tests/                      # Pester test suite (29 tests, 6 files)
 ├── .github/
-│   ├── ISSUE_TEMPLATE/      # Bug report + feature request templates
-│   └── workflows/           # CI: compile-check + unit tests
-└── LICENSE                  # MIT license
+│   ├── ISSUE_TEMPLATE/         # Bug report + feature request templates
+│   └── workflows/              # CI: compile-check + unit tests
+├── LICENSE                     # MIT license
+├── README.md                   # This file
+└── .gitignore
 ```
 
 </details>

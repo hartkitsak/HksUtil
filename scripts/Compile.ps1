@@ -2,19 +2,20 @@
     Compile.ps1 — Compiles HksUtil modules, config, and XAML into a single script.
 
     Usage:
-        .\Compile.ps1          # Produces hksutil.ps1 in repo root
-        .\Compile.ps1 -Run     # Compile and launch
+        .\scripts\Compile.ps1          # Produces hksutil.ps1 in repo root
+        .\scripts\Compile.ps1 -Run     # Compile and launch
 #>
 
 param([switch]$Run)
 
 $OFS = "`r`n"
+$root = Split-Path $PSScriptRoot -Parent
 
-$outputPath = Join-Path $PSScriptRoot "hksutil.ps1"
+$outputPath = Join-Path $root "hksutil.ps1"
 $script = [System.Collections.Generic.List[string]]::new()
 
 # 1. Read start.ps1 header (with version placeholder)
-$header = Get-Content (Join-Path $PSScriptRoot "scripts\start.ps1") -Raw
+$header = Get-Content (Join-Path $PSScriptRoot "start.ps1") -Raw
 $version = Get-Date -Format 'yy.MM.dd'
 $header = $header -replace '#{replaceme}', $version
 $script.Add($header)
@@ -29,14 +30,14 @@ $moduleOrder = @(
     "utility.ps1", "build.ps1", "install.ps1", "features.ps1"
 )
 foreach ($mod in $moduleOrder) {
-    $modPath = Join-Path $PSScriptRoot "modules" $mod
+    $modPath = Join-Path $root "modules" $mod
     if (Test-Path $modPath) {
         $script.Add((Get-Content $modPath -Raw))
     }
 }
 
 # 3. Embed config.json
-$configPath = Join-Path $PSScriptRoot "config\config.json"
+$configPath = Join-Path $root "config\config.json"
 if (Test-Path $configPath) {
     $configJson = Get-Content $configPath -Raw -Encoding UTF8
     $script.Add(@"
@@ -57,7 +58,7 @@ $configJson
 }
 
 # 4. Embed xaml/ui.xaml
-$xamlPath = Join-Path $PSScriptRoot "xaml\ui.xaml"
+$xamlPath = Join-Path $root "xaml\ui.xaml"
 if (Test-Path $xamlPath) {
     $xamlContent = Get-Content $xamlPath -Raw -Encoding UTF8
     $script.Add(@"

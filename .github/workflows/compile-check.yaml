@@ -18,5 +18,5 @@ jobs:
       shell: pwsh
       run: |
         Set-ExecutionPolicy Bypass -Scope Process -Force
-        ./Compile.ps1
+        ./scripts/Compile.ps1
       continue-on-error: false

@@ -35,18 +35,19 @@ The script auto-elevates to Admin if not already running as Admin.
 ```
 HksUtil/
 ├── app.ps1                    # Entry point (~160 lines: auto-elevate, dot-source, XAML, NoUI)
-├── launcher.ps1               # Bootstrap script for irm|iex
-├── Compile.ps1                # Build script — merges → hksutil.ps1 (single-file output)
 ├── scripts/
-│   └── start.ps1              # Compiled script header template (header, params, admin check)
+│   ├── start.ps1              # Compiled script header template (header, params, admin check)
+│   └── Compile.ps1            # Build script — merges → hksutil.ps1 (single-file output)
+├── docs/
+│   └── HKSUITL_PROJECT_DOCS.md # This file
 ├── README.md                  # GitHub documentation
 ├── LICENSE                    # MIT license (file)
 ├── .gitignore
 ├── config/
 │   └── config.json            # Unified config (7 sections: meta, themes, apps, tweaks, dns, preferences, features)
 ├── xaml/
-│   └── ui.xaml                # WPF UI layout (~660 lines)
-├── modules/                   # 13 PowerShell modules
+│   └── ui.xaml                # WPF UI layout (~640 lines)
+├── modules/                   # 11 PowerShell modules
 │   ├── logger.ps1             # Write-Log, Show-HksUtilLogo, Show-Confirm, Show-Info, Set-Status
 │   ├── core.ps1               # $sync hashtable, Invoke-WPFUIThread, Show/Hide-Progress, Set-ProgressTaskbar,
 │   │                          # Update-InstalledCache, Ensure-PackageManager, Get-WpfResource,
@@ -58,14 +59,12 @@ HksUtil/
 │   ├── search.ps1             # Apply-Filters (search text + installed filter), SearchHint toggle
 │   ├── toolbar.ps1            # Title bar button handlers (theme, min/max/close, gear menu: export, import, about, docs, sponsors)
 │   ├── dns.ps1                # DNS radio button cards + Apply button
-│   ├── terminal.ps1           # Invoke-TerminalAction for dotfiles install/uninstall
+│   ├── terminal.ps1           # Nova profile install/uninstall via irm|iex
 │   ├── utility.ps1            # Create desktop shortcut via WScript.Shell COM
 │   ├── build.ps1              # Dynamic UI builder for all pages (apps, tweaks, features, preferences, legacy)
 │   ├── install.ps1            # Batch install/uninstall logic (Invoke-Install, Invoke-Uninstall)
 │   └── features.ps1           # Invoke-RunFeatures (applies checked feature checkboxes)
-├── tests/                     # Pester 3.4.0 test suite (32 tests, 7 files)
-├── lint/
-│   └── PSScriptAnalyser.ps1   # PSScriptAnalyzer rules
+├── tests/                     # Pester 3.4.0 test suite (29 tests, 6 files)
 ├── .github/
 │   ├── ISSUE_TEMPLATE/        # bug_report.yaml, feature_request.yaml, config.yml
 │   └── workflows/             # compile-check.yaml, unittests.yaml
@@ -452,8 +451,8 @@ Each: `{ description, ipv4: [2], ipv6: [2] }`
 
 **Usage:**
 ```powershell
-.\Compile.ps1        # Produces hksutil.ps1
-.\Compile.ps1 -Run   # Compile and launch
+.\scripts\Compile.ps1        # Produces hksutil.ps1
+.\scripts\Compile.ps1 -Run   # Compile and launch
 ```
 
 The output `hksutil.ps1` is gitignored (not tracked in repo). Compiled version supports the same params as `app.ps1`.
@@ -466,7 +465,7 @@ Two workflows in `.github/workflows/`:
 
 **compile-check.yaml:**
 - Trigger: push/PR to main, manual dispatch, or called by other workflows
-- Job: Checkout → run `Compile.ps1` → fail on error
+- Job: Checkout → run `scripts/Compile.ps1` → fail on error
 
 **unittests.yaml:**
 - Trigger: push/PR to main, manual dispatch
