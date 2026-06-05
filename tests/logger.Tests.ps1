@@ -3,6 +3,7 @@ $moduleRoot = Resolve-Path "$here\.."
 
 Describe "Show-HksUtilLogo" {
     BeforeAll {
+        $sync = [Hashtable]::Synchronized(@{})
         . "$moduleRoot\modules\logger.ps1"
     }
 
@@ -13,6 +14,7 @@ Describe "Show-HksUtilLogo" {
 
 Describe "Write-Log" {
     BeforeAll {
+        $sync = [Hashtable]::Synchronized(@{})
         . "$moduleRoot\modules\logger.ps1"
     }
 
@@ -28,6 +30,7 @@ Describe "Write-Log" {
 
 Describe "Show-Confirm / Show-Info / Set-Status" {
     BeforeAll {
+        $sync = [Hashtable]::Synchronized(@{})
         . "$moduleRoot\modules\logger.ps1"
         Mock -CommandName Show-Confirm -MockWith { $true }
         Mock -CommandName Show-Info
@@ -44,13 +47,13 @@ Describe "Show-Confirm / Show-Info / Set-Status" {
     It "Set-Status updates text when control exists" {
         $mockCtrl = New-Object PSObject
         $mockCtrl | Add-Member -MemberType NoteProperty -Name Text -Value ""
-        $script:controls = @{ StatusText = $mockCtrl }
+        $sync.controls = @{ StatusText = $mockCtrl }
         Set-Status "Ready"
-        $script:controls["StatusText"].Text | Should Be "Ready"
+        $sync.controls["StatusText"].Text | Should Be "Ready"
     }
 
     It "Set-Status does nothing when StatusText missing" {
-        $script:controls = @{}
+        $sync.controls = @{}
         { Set-Status "test" } | Should Not Throw
     }
 }

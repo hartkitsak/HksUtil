@@ -4,6 +4,7 @@ $moduleRoot = Resolve-Path "$here\.."
 Describe "Theme" {
     BeforeAll {
         $script:appRoot = $moduleRoot
+        $sync = [Hashtable]::Synchronized(@{})
         . "$moduleRoot\modules\logger.ps1"
         . "$moduleRoot\modules\theme.ps1"
         Mock -CommandName Write-Log

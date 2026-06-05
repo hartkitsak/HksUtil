@@ -1,5 +1,6 @@
 $here = Split-Path -Parent $MyInvocation.MyCommand.Path
 $moduleRoot = Resolve-Path "$here\.."
+$sync = [Hashtable]::Synchronized(@{})
 
 Describe "Invoke-WPFUIThread" {
     BeforeAll {
@@ -27,6 +28,8 @@ Describe "Invoke-WPFUIThread" {
 
 Describe "Show-Progress / Hide-Progress" {
     BeforeAll {
+        $sync = [Hashtable]::Synchronized(@{})
+        $sync.controls = @{}
         . "$moduleRoot\modules\logger.ps1"
         . "$moduleRoot\modules\core.ps1"
         Mock -CommandName Set-ProgressTaskbar
@@ -38,21 +41,21 @@ Describe "Show-Progress / Hide-Progress" {
         $pt = New-Object PSObject; $pt | Add-Member NoteProperty Text ""
         $pst = New-Object PSObject; $pst | Add-Member NoteProperty Text ""
         $pb = New-Object PSObject; $pb | Add-Member NoteProperty Value 0.0; $pb | Add-Member NoteProperty IsIndeterminate $false
-        $script:controls = @{ ProgressOverlay = $po; ProgressText = $pt; ProgressSubText = $pst; ProgressBar = $pb }
+        $sync.controls = @{ ProgressOverlay = $po; ProgressText = $pt; ProgressSubText = $pst; ProgressBar = $pb }
         Show-Progress "Installing..." "Sub" 0.5
-        $controls["ProgressOverlay"].Visibility | Should Be "Visible"
-        $controls["ProgressText"].Text | Should Be "Installing..."
+        $sync.controls["ProgressOverlay"].Visibility | Should Be "Visible"
+        $sync.controls["ProgressText"].Text | Should Be "Installing..."
     }
 
     It "hides overlay" {
         $po = New-Object PSObject; $po | Add-Member NoteProperty Visibility "Visible"
-        $script:controls = @{ ProgressOverlay = $po }
+        $sync.controls = @{ ProgressOverlay = $po }
         Hide-Progress
-        $controls["ProgressOverlay"].Visibility | Should Be "Collapsed"
+        $sync.controls["ProgressOverlay"].Visibility | Should Be "Collapsed"
     }
 
     It "does nothing when overlay missing" {
-        $script:controls = @{}
+        $sync.controls = @{}
         { Show-Progress "test" } | Should Not Throw
         { Hide-Progress } | Should Not Throw
     }
@@ -60,6 +63,7 @@ Describe "Show-Progress / Hide-Progress" {
 
 Describe "Set-ProgressTaskbar" {
     BeforeAll {
+        $sync = [Hashtable]::Synchronized(@{})
         . "$moduleRoot\modules\logger.ps1"
         . "$moduleRoot\modules\core.ps1"
     }
@@ -72,6 +76,7 @@ Describe "Set-ProgressTaskbar" {
 
 Describe "Update-InstalledCache" {
     BeforeAll {
+        $sync = [Hashtable]::Synchronized(@{})
         . "$moduleRoot\modules\logger.ps1"
         . "$moduleRoot\modules\core.ps1"
         Mock -CommandName Get-Command -MockWith { $null }

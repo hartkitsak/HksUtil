@@ -4,7 +4,7 @@ if (-not $script:navNames) { $script:navNames = @("Install", "Tweaks", "Features
 
 function Show-NavPanel {
     param($Name)
-    foreach ($other in $navNames) {
+    foreach ($other in $script:navNames) {
         if ($sync.controls["Page$other"]) { $sync.controls["Page$other"].Visibility = "Collapsed" }
     }
     if ($sync.controls["Page$Name"]) { $sync.controls["Page$Name"].Visibility = "Visible"; $sync.currentTab = $Name; Write-Log "Switched to: $Name" "Info" }
@@ -13,11 +13,11 @@ function Show-NavPanel {
 function Switch-Page { param($Name); Show-NavPanel $Name }
 
 if ($sync.controls.Count) {
-    foreach ($n in $navNames) {
-        if ($sync.controls["Page$n"]) { $pages[$n] = $sync.controls["Page$n"] }
-        if ($sync.controls["Nav$n"]) { $navButtons[$n] = $sync.controls["Nav$n"] }
+    foreach ($n in $script:navNames) {
+        if ($sync.controls["Page$n"]) { $script:pages[$n] = $sync.controls["Page$n"] }
+        if ($sync.controls["Nav$n"]) { $script:navButtons[$n] = $sync.controls["Nav$n"] }
     }
-    foreach ($navName in $navNames) {
+    foreach ($navName in $script:navNames) {
         $btnName = "Nav$navName"
         $btn = $sync.controls[$btnName]
         if ($btn) {
@@ -31,7 +31,7 @@ if ($sync.controls.Count) {
         param($sender, $e)
             if ($e.Key -eq "Escape" -and $sync.controls["SearchBox"]) {
                 $sync.controls["SearchBox"].Text = ""
-                Show-NavPanel $navNames[0]
+                Show-NavPanel $script:navNames[0]
                 $e.Handled = $true
             }
         })

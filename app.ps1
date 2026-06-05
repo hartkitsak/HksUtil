@@ -64,8 +64,7 @@ $initialState.Variables.Add($hashVars)
 $sync.runspace = [runspacefactory]::CreateRunspacePool(1, $maxthreads, $initialState, $Host)
 $sync.runspace.Open()
 
-$script:logLevel = "Success"
-if ($Verbose) { $script:logLevel = "Info" }
+$sync.logLevel = if ($Verbose) { "Info" } else { "Success" }
 $script:appRoot = $PSScriptRoot
 
 . "$PSScriptRoot\modules\logger.ps1"
@@ -85,21 +84,13 @@ try { $sync.configs.preferences = Get-Content (Join-Path $configPath "preference
 try { $sync.configs.features = Get-Content (Join-Path $configPath "features.json") -Raw -Encoding UTF8 | ConvertFrom-Json } catch { $sync.configs.features = @{}; Write-Log "features.json failed: $_" "Warn" }
 Write-Log "Config files loaded." "Success"
 
-if ($Export) {
-    $sel = @{ CheckedApps = @(); CheckedTweaks = @() }
-    try {
-        $selJson = $sel | ConvertTo-Json -Depth 5
-        [System.IO.File]::WriteAllText($Export, $selJson, [System.Text.UTF8Encoding]::new($false))
-        Write-Log "Exported to $Export" "Success"
-    } catch { Write-Log "Export failed: $_" "Error" }
-}
-
 if ($sync.noUI) {
     if ($Config -and $Apply) {
         Write-Log "NoUI mode: applying config..." "Header"
         try {
             if ($Config -match "^https?://") { $importJson = Invoke-WebRequest -Uri $Config -UseBasicParsing | Select-Object -ExpandProperty Content | ConvertFrom-Json }
             else { $importJson = Get-Content $Config -Raw -Encoding UTF8 | ConvertFrom-Json }
+
             if ($importJson.AppSelections) {
                 Ensure-PackageManager "winget" | Out-Null
                 foreach ($id in $importJson.AppSelections) {
@@ -107,10 +98,59 @@ if ($sync.noUI) {
                     winget install --id=$id --silent --accept-package-agreements --accept-source-agreements 2>&1 | Out-Null
                 }
             }
+
+            if ($importJson.TweakSelections) {
+                foreach ($tk in $importJson.TweakSelections) {
+                    $tweak = $null
+                    foreach ($g in $sync.configs.tweaks.PSObject.Properties.Name) {
+                        if ($sync.configs.tweaks.$g.PSObject.Properties.Name -contains $tk) { $tweak = $sync.configs.tweaks.$g.$tk; break }
+                    }
+                    if (-not $tweak) { continue }
+                    Write-Log "Headless tweak: $($tweak.content)" "Info"
+                    Save-OriginalValues -tweakKey $tk -tweak $tweak
+                    foreach ($svc in $tweak.services) {
+                        if ($svc.action -eq "stop_disable") { Stop-Service $svc.name -Force -ErrorAction SilentlyContinue; Set-Service $svc.name -StartupType Disabled -ErrorAction SilentlyContinue }
+                        if ($svc.action -eq "set_manual") { Set-Service $svc.name -StartupType Manual -ErrorAction SilentlyContinue }
+                    }
+                    foreach ($reg in $tweak.registry) {
+                        if (!(Test-Path $reg.path)) { New-Item $reg.path -Force | Out-Null }
+                        Set-ItemProperty $reg.path -Name $reg.name -Value $reg.value -Type $reg.type -Force
+                    }
+                    foreach ($pkg in $tweak.appx_packages) {
+                        Get-AppxPackage -Name $pkg -ErrorAction SilentlyContinue | Remove-AppxPackage
+                        Get-AppxProvisionedPackage -Online | Where-Object { $_.DisplayName -like $pkg } | Remove-AppxProvisionedPackage -Online
+                    }
+                    if ($tweak.script) { & ([scriptblock]::Create($tweak.script)) }
+                }
+            }
+
+            if ($importJson.FeatureSelections) {
+                foreach ($fk in $importJson.FeatureSelections) {
+                    $feature = $null
+                    foreach ($g in @("Features","Fixes")) {
+                        if ($sync.configs.features.$g.PSObject.Properties.Name -contains $fk) { $feature = $sync.configs.features.$g.$fk; break }
+                    }
+                    if ($feature -and $feature.script) { Write-Log "Headless feature: $($feature.content)" "Info"; & ([scriptblock]::Create($feature.script)) }
+                }
+            }
+
+            if ($importJson.PreferenceStates) {
+                foreach ($pk in $importJson.PreferenceStates.PSObject.Properties.Name) {
+                    $pref = $sync.configs.preferences.$pk
+                    if (-not $pref) { continue }
+                    $entries = if ($importJson.PreferenceStates.$pk) { $pref.registry_on } else { $pref.registry_off }
+                    foreach ($reg in $entries) {
+                        if (!(Test-Path $reg.path)) { New-Item $reg.path -Force | Out-Null }
+                        Set-ItemProperty $reg.path -Name $reg.name -Value $reg.value
+                    }
+                    Write-Log "Headless pref: $($pref.content) = $($importJson.PreferenceStates.$pk)" "Info"
+                }
+            }
+
             Write-Log "Headless apply complete." "Success"
         } catch { Write-Log "Headless apply failed: $_" "Error" }
     } else { Write-Log "NoUI mode: use -Config <path> -Apply to apply." "Warn" }
-    $sync.runspace.Dispose(); $sync.runspace.Close()
+    $sync.runspace.Close(); $sync.runspace.Dispose()
     pause; exit
 }
 
@@ -190,8 +230,8 @@ if ($Config -and -not $Apply) {
 }
 
 $sync.window.Add_Closing({
-    $sync.runspace.Dispose()
     $sync.runspace.Close()
+    $sync.runspace.Dispose()
     [System.GC]::Collect()
 })
 

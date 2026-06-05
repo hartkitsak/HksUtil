@@ -12,10 +12,11 @@ Describe "Navigation" {
             $b
         }
         function New-Page { $p = New-Object PSObject; $p | Add-Member NoteProperty Visibility "Collapsed"; $p }
-        $script:controls = @{}
+        $sync = [Hashtable]::Synchronized(@{})
+        $sync.controls = @{}
         foreach ($name in @("Install","Tweaks","Features","Preferences","Legacy","Settings")) {
-            $controls["Nav$name"] = New-NavBtn
-            $controls["Page$name"] = New-Page
+            $sync.controls["Nav$name"] = New-NavBtn
+            $sync.controls["Page$name"] = New-Page
         }
         $script:window = New-Object PSObject; $window | Add-Member ScriptMethod Add_KeyDown { param($handler) }
         . "$moduleRoot\modules\logger.ps1"
@@ -27,15 +28,15 @@ Describe "Navigation" {
     }
 
     It "defines pages hashtable" {
-        $pages.Count | Should Be 6
+        $script:pages.Count | Should Be 6
     }
 
     It "defines navButtons hashtable" {
-        $navButtons.Count | Should Be 6
+        $script:navButtons.Count | Should Be 6
     }
 
     It "nav buttons have Tag set" {
-        $controls["NavInstall"].Tag | Should Be "Install"
-        $controls["NavTweaks"].Tag | Should Be "Tweaks"
+        $sync.controls["NavInstall"].Tag | Should Be "Install"
+        $sync.controls["NavTweaks"].Tag | Should Be "Tweaks"
     }
 }

@@ -3,9 +3,10 @@ $moduleRoot = Resolve-Path "$here\.."
 
 Describe "Tweaks" {
     BeforeAll {
+        $sync = [Hashtable]::Synchronized(@{})
         $btn = New-Object PSObject; $btn | Add-Member ScriptMethod Add_Click { param($h) }
         $btn2 = New-Object PSObject; $btn2 | Add-Member ScriptMethod Add_Click { param($h) }
-        $script:controls = @{ BtnRunTweaks = $btn; BtnUndoTweaks = $btn2 }
+        $sync.controls = @{ BtnRunTweaks = $btn; BtnUndoTweaks = $btn2 }
         $script:tweakCheckboxes = @()
         $script:tweakUndoLog = @{}
         . "$moduleRoot\modules\logger.ps1"
