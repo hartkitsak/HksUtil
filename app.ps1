@@ -40,7 +40,7 @@ if (-not $isAdmin) {
     if ($Verbose) { $argList += "-Verbose" }
     $scriptCmd = if ($PSCommandPath) {
         "& { & '$PSCommandPath' $($argList -join ' ') }"
-    } else { "& { . ([scriptblock]::Create((Invoke-WebRequest -Uri 'https://raw.githubusercontent.com/hartkitsak/HksUtil/main/hksutil.ps1' -UseBasicParsing).Content)) }" }
+    } else { "& { `$f = Join-Path `$env:TEMP 'hksutil.ps1'; Invoke-WebRequest -Uri 'https://raw.githubusercontent.com/hartkitsak/HksUtil/main/hksutil.ps1' -OutFile `$f -UseBasicParsing; & `$f $($argList -join ' '); Remove-Item `$f -Force }" }
     $powershellCmd = if (Get-Command pwsh -ErrorAction SilentlyContinue) { "pwsh" } else { "powershell.exe" }
     $processCmd = if (Get-Command wt.exe -ErrorAction SilentlyContinue) { "wt.exe" } else { "$powershellCmd" }
     try {

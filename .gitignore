@@ -20,6 +20,5 @@ functions/
 tests/
 .github/
 LICENSE
-install.ps1
 scripts/Compile.ps1
 scripts/start.ps1
