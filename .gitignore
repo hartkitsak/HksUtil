@@ -20,7 +20,6 @@ functions/
 tests/
 .github/
 LICENSE
-README.md
 install.ps1
 scripts/Compile.ps1
 scripts/start.ps1

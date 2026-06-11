@@ -15,12 +15,21 @@
     Version : development — run .\scripts\Combine.ps1 to build hksutil.ps1
 #>
 
-param(
-    [string]$Config,
-    [switch]$Noui,
-    [switch]$Apply,
-    [switch]$Verbose
-)
+# Manual arg parsing (no param() — supports irm | iex)
+$Config = $null; $Noui = $false; $Apply = $false; $Verbose = $false
+$i = 0
+while ($i -lt $args.Count) {
+    $a = $args[$i]
+    if ($a -like '-*') {
+        $name = $a.TrimStart('-')
+        if ($name -eq 'Config') { $i++; $Config = $args[$i] }
+        elseif ($name -eq 'Noui') { $Noui = $true }
+        elseif ($name -eq 'Apply') { $Apply = $true }
+        elseif ($name -eq 'Verbose') { $Verbose = $true }
+        else { Write-Host "Unknown argument: $a"; exit 1 }
+    }
+    $i++
+}
 
 if ($ExecutionContext.SessionState.LanguageMode -ne 'FullLanguage') {
     Write-Host "HksUtil requires FullLanguage mode. Current: $($ExecutionContext.SessionState.LanguageMode)" -ForegroundColor Red
@@ -35,16 +44,13 @@ $isAdmin = ([Security.Principal.WindowsPrincipal][Security.Principal.WindowsIden
 if (-not $isAdmin) {
     Write-Host "HksUtil needs to be run as Administrator. Attempting to relaunch."
     $argList = @()
-    $PSBoundParameters.GetEnumerator() | ForEach-Object {
-        $argList += if ($_.Value -is [switch] -and $_.Value) { "-$($_.Key)" }
-        elseif ($_.Value -is [array]) { $v = $($_.Value -join ','); "-$($_.Key) '$v'" }
-        elseif ($null -ne $_.Value) { $v = "$($_.Value)".Replace("'", "''"); "-$($_.Key) '$v'" }
-    }
+    if ($Config) { $cv = $Config.Replace("'", "''"); $argList += "-Config '$cv'" }
+    if ($Noui) { $argList += "-Noui" }
+    if ($Apply) { $argList += "-Apply" }
+    if ($Verbose) { $argList += "-Verbose" }
     $scriptCmd = if ($PSCommandPath) {
         "& { & '$PSCommandPath' $($argList -join ' ') }"
-    } else {
-        "& { & '$(Join-Path $PSScriptRoot app.ps1)' $($argList -join ' ') }"
-    }
+    } else { "& { . ([scriptblock]::Create((Invoke-WebRequest -Uri 'https://raw.githubusercontent.com/hartkitsak/HksUtil/main/hksutil.ps1' -UseBasicParsing).Content)) }" }
     $powershellCmd = if (Get-Command pwsh -ErrorAction SilentlyContinue) { "pwsh" } else { "powershell.exe" }
     $processCmd = if (Get-Command wt.exe -ErrorAction SilentlyContinue) { "wt.exe" } else { "$powershellCmd" }
     try {
