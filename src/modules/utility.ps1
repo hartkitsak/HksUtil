@@ -3,11 +3,18 @@ if ($sync.controls["BtnCreateShortcut"]) {
         $lnkPath = Join-Path ([Environment]::GetFolderPath("Desktop")) "HksUtil.lnk"
         if (Test-Path $lnkPath) { if (-not (Show-Confirm "Overwrite?" "Shortcut exists. Overwrite?")) { return } }
         try {
-            $isTempPath = $PSCommandPath -and ($PSCommandPath -like "$($env:TEMP)\*")
+            $isTempPath = $false
+            if ($PSCommandPath) {
+                $scriptPath = [System.IO.Path]::GetFullPath($PSCommandPath)
+                $tempPath = [System.IO.Path]::GetFullPath($env:TEMP)
+                $isTempPath = $scriptPath.StartsWith($tempPath.TrimEnd('\') + '\', [StringComparison]::OrdinalIgnoreCase)
+            }
             if ($PSCommandPath -and -not $isTempPath -and (Test-Path $PSCommandPath)) {
                 $shortcutArgs = "-ExecutionPolicy Bypass -Command Start-Process powershell.exe -Verb RunAs -ArgumentList '-NoProfile -ExecutionPolicy Bypass -File `"$PSCommandPath`"'"
+                $workingDir = Split-Path $PSCommandPath -Parent
             } else {
                 $shortcutArgs = "-ExecutionPolicy Bypass -Command Start-Process powershell.exe -Verb RunAs -ArgumentList '-NoProfile -ExecutionPolicy Bypass -Command `"Invoke-WebRequest -Uri ''https://raw.githubusercontent.com/hartkitsak/HksUtil/main/install.ps1'' -UseBasicParsing | Invoke-Expression`"'"
+                $workingDir = $env:USERPROFILE
             }
             $target = "$env:SystemRoot\System32\WindowsPowerShell\v1.0\powershell.exe"
 
@@ -16,7 +23,7 @@ if ($sync.controls["BtnCreateShortcut"]) {
             $shortcut.TargetPath = $target
             $shortcut.Arguments = $shortcutArgs
             $shortcut.Description = "HksUtil v$($sync.version) - Windows Optimizer"
-            $shortcut.WorkingDirectory = if ($PSCommandPath -and -not $isTempPath -and (Test-Path $PSCommandPath)) { Split-Path $PSCommandPath -Parent } else { $env:USERPROFILE }
+            $shortcut.WorkingDirectory = $workingDir
             $shortcut.IconLocation = "$([Environment]::SystemDirectory)\imageres.dll, 109"
             $shortcut.WindowStyle = 7
             $shortcut.Save()

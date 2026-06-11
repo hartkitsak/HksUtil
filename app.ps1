@@ -40,7 +40,7 @@ if (-not $isAdmin) {
     if ($Noui) { $argList += "-Noui" }
     if ($Apply) { $argList += "-Apply" }
     if ($Verbose) { $argList += "-Verbose" }
-    $isTemp = $PSCommandPath -and ($PSCommandPath -like "$($env:TEMP)\*")
+    $isTemp = $PSCommandPath -and $PSCommandPath.StartsWith([System.IO.Path]::GetFullPath($env:TEMP).TrimEnd('\') + '\', [StringComparison]::OrdinalIgnoreCase)
     $scriptCmd = if ($PSCommandPath -and -not $isTemp) {
         $escapedPath = $PSCommandPath.Replace("'", "''")
         "& { & '$escapedPath' $($argList -join ' ') }"
