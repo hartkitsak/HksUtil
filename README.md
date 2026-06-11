@@ -5,10 +5,16 @@
 ## Quick Install
 
 ```powershell
-irm https://raw.githubusercontent.com/hartkitsak/HksUtil/main/hksutil.ps1 | iex
+irm https://raw.githubusercontent.com/hartkitsak/HksUtil/main/install.ps1 | iex
 ```
 
-This runs the combined script directly from GitHub. Elevated admin rights are required.
+Downloads to `$env:TEMP` and runs elevated. Cleans up after exit.
+
+**Alternative** (saved to disk):
+
+```powershell
+irm https://raw.githubusercontent.com/hartkitsak/HksUtil/main/hksutil.ps1 -OutFile "$env:TEMP\hksutil.ps1"; & "$env:TEMP\hksutil.ps1" -Verbose
+```
 
 ## Features
 
@@ -59,6 +65,7 @@ Requires PowerShell 5.1+ (Windows PowerShell). Output: `hksutil.ps1`
 ```
 HksUtil/
 ├── hksutil.ps1          # Combined single-file build
+├── install.ps1          # Bootstrapper (download to temp + run)
 ├── app.ps1              # Dev entry point
 ├── scripts/
 │   ├── Combine.ps1      # Build script (PowerShell)
