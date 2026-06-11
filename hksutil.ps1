@@ -1704,14 +1704,15 @@ if ($sync.controls["BtnCreateShortcut"]) {
         try {
             $isTempPath = $PSCommandPath -and ($PSCommandPath -like "$($env:TEMP)\*")
             if ($PSCommandPath -and -not $isTempPath -and (Test-Path $PSCommandPath)) {
-                $target = "$env:SystemRoot\System32\WindowsPowerShell\v1.0\powershell.exe"
-                $cmd = "Start-Process powershell.exe -Verb RunAs -ArgumentList '-ExecutionPolicy Bypass -NoProfile -File `"$PSCommandPath`"'"
+                $cmd = "Start-Process powershell.exe -Verb RunAs -ArgumentList '-NoProfile -ExecutionPolicy Bypass -File `"$PSCommandPath`"'"
             } else {
-                $target = "$env:SystemRoot\System32\WindowsPowerShell\v1.0\powershell.exe"
-                $cmd = "Invoke-WebRequest -Uri 'https://raw.githubusercontent.com/hartkitsak/HksUtil/main/install.ps1' -UseBasicParsing | Invoke-Expression"
+                $irmCmd = "Invoke-WebRequest -Uri 'https://raw.githubusercontent.com/hartkitsak/HksUtil/main/install.ps1' -UseBasicParsing | Invoke-Expression"
+                $irmEncoded = [Convert]::ToBase64String([Text.Encoding]::Unicode.GetBytes($irmCmd))
+                $cmd = "Start-Process powershell.exe -Verb RunAs -ArgumentList '-NoProfile -ExecutionPolicy Bypass -EncodedCommand $irmEncoded'"
             }
+            $target = "$env:SystemRoot\System32\WindowsPowerShell\v1.0\powershell.exe"
             $encoded = [Convert]::ToBase64String([Text.Encoding]::Unicode.GetBytes($cmd))
-            $shortcutArgs = "-ExecutionPolicy Bypass -NoProfile -EncodedCommand $encoded"
+            $shortcutArgs = "-NoProfile -ExecutionPolicy Bypass -EncodedCommand $encoded"
 
             $wshell = New-Object -ComObject WScript.Shell
             $shortcut = $wshell.CreateShortcut($lnkPath)
