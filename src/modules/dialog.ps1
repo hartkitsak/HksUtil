@@ -19,8 +19,8 @@ function New-DialogWindow {
     $border.CornerRadius = "10"
     $border.UseLayoutRounding = $true
     $outerBorder = New-Object System.Windows.Controls.Border
-    $outerBorder.Background = $sync.window.FindResource("cardBackground")
-    $outerBorder.BorderBrush = $sync.window.FindResource("cardBorder")
+    $outerBorder.Background = $sync.window.TryFindResource("cardBackground")
+    $outerBorder.BorderBrush = $sync.window.TryFindResource("cardBorder")
     $outerBorder.BorderThickness = "1"
     $outerBorder.CornerRadius = "10"
     $outerBorder.Padding = "24,20"
@@ -30,13 +30,13 @@ function New-DialogWindow {
     $titleTb.Text = $Title
     $titleTb.FontSize = 18
     $titleTb.FontWeight = "Bold"
-    $titleTb.Foreground = $sync.window.FindResource("pageTitleColor")
+    $titleTb.Foreground = $sync.window.TryFindResource("pageTitleColor")
     $titleTb.Margin = "0,0,0,6"
     $stack.Children.Add($titleTb) | Out-Null
     $msgTb = New-Object System.Windows.Controls.TextBlock
     $msgTb.Text = $Message
     $msgTb.FontSize = 13
-    $msgTb.Foreground = $sync.window.FindResource("cardForeground")
+    $msgTb.Foreground = $sync.window.TryFindResource("cardForeground")
     $msgTb.TextWrapping = "Wrap"
     $msgTb.Margin = "0,0,0,20"
     $stack.Children.Add($msgTb) | Out-Null
@@ -93,7 +93,8 @@ function Show-Confirm {
     if ($sync.noUI) { return $true }
     $win = New-DialogWindow -Title $Title -Message $Message -DialogType "Confirm"
     if (-not $win) { return $true }
-    return $win.ShowDialog()
+    $result = $win.ShowDialog()
+    return ($result -eq $true)
 }
 
 function Show-Info {

@@ -79,14 +79,13 @@ function Update-AppBadges {
     if (-not $script:installedAppIds -or $appCheckboxes.Count -eq 0) { return }
     foreach ($cb in $appCheckboxes) {
         $id = if ($cb.Tag -ne $null) { $cb.Tag.ToString() } else { "" }
+        if ($cb.Content -isnot [System.Windows.Controls.StackPanel]) { continue }
         $sp = $cb.Content
-        if ($sp -and $sp -is [System.Windows.Controls.StackPanel]) {
-            $existingBadges = @($sp.Children | Where-Object { $_ -is [System.Windows.Controls.TextBlock] -and $_.Text -eq " ✓" })
-            foreach ($b in $existingBadges) { $sp.Children.Remove($b) }
-            if ($id -and $script:installedAppIds.ContainsKey($id)) {
-                $badge = New-Object System.Windows.Controls.TextBlock; $badge.Text = " ✓"; $badge.Foreground = [System.Windows.Media.Brushes]::LimeGreen; $badge.FontSize = 12; $badge.FontWeight = "Bold"; $badge.VerticalAlignment = "Center"; $badge.ToolTip = "Installed"
-                $null = $sp.Children.Add($badge)
-            }
+        $existingBadges = @($sp.Children | Where-Object { $_ -is [System.Windows.Controls.TextBlock] -and $_.Text -eq " ✓" })
+        foreach ($b in $existingBadges) { $sp.Children.Remove($b) }
+        if ($id -and $script:installedAppIds.ContainsKey($id)) {
+            $badge = New-Object System.Windows.Controls.TextBlock; $badge.Text = " ✓"; $badge.Foreground = [System.Windows.Media.Brushes]::LimeGreen; $badge.FontSize = 12; $badge.FontWeight = "Bold"; $badge.VerticalAlignment = "Center"; $badge.ToolTip = "Installed"
+            $null = $sp.Children.Add($badge)
         }
     }
 }

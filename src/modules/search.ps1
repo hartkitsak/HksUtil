@@ -62,7 +62,7 @@ function Apply-Filters {
                         $tb = $btn.Content
                         if ($tb -is [System.Windows.Controls.StackPanel]) {
                             $innerSp = $tb.Children | Where-Object { $_ -is [System.Windows.Controls.StackPanel] } | Select-Object -First 1
-                            if ($innerSp) { ($innerSp.Children | Select-Object -First 1).Text.ToString().ToLower() } else { "" }
+                            if ($innerSp) { $firstChild = $innerSp.Children | Select-Object -First 1; if ($firstChild -is [System.Windows.Controls.TextBlock]) { $firstChild.Text.ToLower() } else { "" } } else { "" }
                         } else { "" }
                     } else { "" }
                     $tooltip = if ($btn.ToolTip -ne $null) { $btn.ToolTip.ToString().ToLower() } else { "" }

@@ -39,7 +39,8 @@ if (-not $isAdmin) {
     if ($Apply) { $argList += "-Apply" }
     if ($Verbose) { $argList += "-Verbose" }
     $scriptCmd = if ($PSCommandPath) {
-        "& { & '$PSCommandPath' $($argList -join ' ') }"
+        $escapedPath = $PSCommandPath.Replace("'", "''")
+        "& { & '$escapedPath' $($argList -join ' ') }"
     } else { "& { `$f = Join-Path `$env:TEMP 'install.ps1'; Invoke-WebRequest -Uri 'https://raw.githubusercontent.com/hartkitsak/HksUtil/main/install.ps1' -OutFile `$f -UseBasicParsing; & `$f $($argList -join ' '); Remove-Item `$f -Force }" }
     $powershellCmd = if (Get-Command pwsh -ErrorAction SilentlyContinue) { "pwsh" } else { "powershell.exe" }
     $processCmd = if (Get-Command wt.exe -ErrorAction SilentlyContinue) { "wt.exe" } else { "$powershellCmd" }
@@ -142,7 +143,6 @@ try {
     $reader.Close()
 } catch { Write-Log "FATAL ERROR loading UI: $_" "Error"; pause; exit }
 
-$sync.controls = @{}
 $xaml.SelectNodes("//*[@Name]") | ForEach-Object { $sync.controls[$_.Name] = $sync.window.FindName($_.Name) }
 foreach ($k in @($sync.controls.Keys)) { if (-not $sync.controls[$k]) { $sync.controls.Remove($k) } }
 
@@ -150,7 +150,7 @@ $buildSuffix = if ($sync.build) { " (build $($sync.build))" } else { "" }
 $sync.window.Title = "HksUtil v$($sync.version)$buildSuffix - Windows Optimizer"
 if ($sync.controls["TitleVersionText"]) { $sync.controls["TitleVersionText"].Text = "v$($sync.version)$buildSuffix" }
 Apply-Theme "light"
-if ($sync.controls["TitleText"]) { $sync.controls["TitleText"].Add_MouseLeftButtonDown({ $sync.window.DragMove() }) }
+if ($sync.controls["TitleText"]) { $sync.controls["TitleText"].Add_MouseLeftButtonDown({ try { $sync.window.DragMove() } catch { } }) }
 
 Update-InstalledCache
 . "$PSScriptRoot\src\modules\navigation.ps1"

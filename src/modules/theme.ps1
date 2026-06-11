@@ -13,9 +13,12 @@ function Apply-Theme {
         $newDict = New-Object System.Windows.ResourceDictionary
 
         foreach ($prop in $colors.PSObject.Properties.Name) {
+            if ($prop -eq "__HksUtilTheme__") { continue }
             $brush = $converter.ConvertFrom($colors.$prop)
+            if (-not $brush) { Write-Log "Invalid theme color: '$prop' = '$($colors.$prop)'" "Warn"; continue }
             $newDict.Add($prop, $brush)
         }
+        $newDict.Add("__HksUtilTheme__", $true)
         if ($converter -and $converter.GetType().GetMethod('Dispose')) { $converter.Dispose() }
 
         $script:currentTheme = $ThemeName
@@ -23,7 +26,7 @@ function Apply-Theme {
 
         if ([System.Windows.Application]::Current) {
             $appResources = [System.Windows.Application]::Current.Resources
-            $existingTheme = @($appResources.MergedDictionaries | Where-Object { $_.Source -eq $null -and $_.Count -gt 0 -and -not $_.Contains("ToolBarButtonBaseStyle") })
+            $existingTheme = @($appResources.MergedDictionaries | Where-Object { $_.Source -eq $null -and $_.Contains("__HksUtilTheme__") })
             foreach ($dict in $existingTheme) { $appResources.MergedDictionaries.Remove($dict) }
             $appResources.MergedDictionaries.Add($newDict)
         } elseif ($sync.window) {

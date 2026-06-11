@@ -9,9 +9,9 @@ if ($sync.controls["BtnCreateShortcut"]) {
                 return
             }
             $target = "$env:SystemRoot\System32\WindowsPowerShell\v1.0\powershell.exe"
-            $innerArgs = "-ExecutionPolicy Bypass -NoProfile -File `"$scriptPath`""
-            $innerArgsEscaped = $innerArgs -replace '"', '\"'
-            $shortcutArgs = "-ExecutionPolicy Bypass -NoProfile -Command `"Start-Process powershell.exe -Verb RunAs -ArgumentList '$innerArgsEscaped'`""
+            $cmd = "Start-Process powershell.exe -Verb RunAs -ArgumentList '-ExecutionPolicy Bypass -NoProfile -File `"$scriptPath`"'"
+            $encoded = [Convert]::ToBase64String([Text.Encoding]::Unicode.GetBytes($cmd))
+            $shortcutArgs = "-ExecutionPolicy Bypass -NoProfile -EncodedCommand $encoded"
 
             $wshell = New-Object -ComObject WScript.Shell
             $shortcut = $wshell.CreateShortcut($lnkPath)

@@ -49,7 +49,8 @@ if (-not $isAdmin) {
     if ($Apply) { $argList += "-Apply" }
     if ($Verbose) { $argList += "-Verbose" }
     $scriptCmd = if ($PSCommandPath) {
-        "& { & '$PSCommandPath' $($argList -join ' ') }"
+        $escapedPath = $PSCommandPath.Replace("'", "''")
+        "& { & '$escapedPath' $($argList -join ' ') }"
     } else { "& { `$f = Join-Path `$env:TEMP 'install.ps1'; Invoke-WebRequest -Uri 'https://raw.githubusercontent.com/hartkitsak/HksUtil/main/install.ps1' -OutFile `$f -UseBasicParsing; & `$f $($argList -join ' '); Remove-Item `$f -Force }" }
     $powershellCmd = if (Get-Command pwsh -ErrorAction SilentlyContinue) { "pwsh" } else { "powershell.exe" }
     $processCmd = if (Get-Command wt.exe -ErrorAction SilentlyContinue) { "wt.exe" } else { "$powershellCmd" }
@@ -714,7 +715,7 @@ function Write-Log {
     try {
         $logLine = if ($Type -eq "Header") { "`n$timestamp === $Message ===" } else { "$timestamp [$($prefix.PadRight(5))] $Message" }
         Add-Content -Path $script:logFilePath -Value $logLine -Encoding UTF8 -ErrorAction SilentlyContinue
-    } catch {}
+    } catch { Write-Host "  Log write failed: $_" -ForegroundColor Yellow }
     if ($script:logBuffer.Count -ge $script:logMaxBuffer) { $script:logBuffer.RemoveAt(0) }
     $script:logBuffer.Add(@{ Timestamp = $timestamp; Level = $Type; Message = $Message })
 }
@@ -767,8 +768,8 @@ function New-DialogWindow {
     $border.CornerRadius = "10"
     $border.UseLayoutRounding = $true
     $outerBorder = New-Object System.Windows.Controls.Border
-    $outerBorder.Background = $sync.window.FindResource("cardBackground")
-    $outerBorder.BorderBrush = $sync.window.FindResource("cardBorder")
+    $outerBorder.Background = $sync.window.TryFindResource("cardBackground")
+    $outerBorder.BorderBrush = $sync.window.TryFindResource("cardBorder")
     $outerBorder.BorderThickness = "1"
     $outerBorder.CornerRadius = "10"
     $outerBorder.Padding = "24,20"
@@ -778,13 +779,13 @@ function New-DialogWindow {
     $titleTb.Text = $Title
     $titleTb.FontSize = 18
     $titleTb.FontWeight = "Bold"
-    $titleTb.Foreground = $sync.window.FindResource("pageTitleColor")
+    $titleTb.Foreground = $sync.window.TryFindResource("pageTitleColor")
     $titleTb.Margin = "0,0,0,6"
     $stack.Children.Add($titleTb) | Out-Null
     $msgTb = New-Object System.Windows.Controls.TextBlock
     $msgTb.Text = $Message
     $msgTb.FontSize = 13
-    $msgTb.Foreground = $sync.window.FindResource("cardForeground")
+    $msgTb.Foreground = $sync.window.TryFindResource("cardForeground")
     $msgTb.TextWrapping = "Wrap"
     $msgTb.Margin = "0,0,0,20"
     $stack.Children.Add($msgTb) | Out-Null
@@ -841,7 +842,8 @@ function Show-Confirm {
     if ($sync.noUI) { return $true }
     $win = New-DialogWindow -Title $Title -Message $Message -DialogType "Confirm"
     if (-not $win) { return $true }
-    return $win.ShowDialog()
+    $result = $win.ShowDialog()
+    return ($result -eq $true)
 }
 
 function Show-Info {
@@ -1046,9 +1048,12 @@ function Apply-Theme {
         $newDict = New-Object System.Windows.ResourceDictionary
 
         foreach ($prop in $colors.PSObject.Properties.Name) {
+            if ($prop -eq "__HksUtilTheme__") { continue }
             $brush = $converter.ConvertFrom($colors.$prop)
+            if (-not $brush) { Write-Log "Invalid theme color: '$prop' = '$($colors.$prop)'" "Warn"; continue }
             $newDict.Add($prop, $brush)
         }
+        $newDict.Add("__HksUtilTheme__", $true)
         if ($converter -and $converter.GetType().GetMethod('Dispose')) { $converter.Dispose() }
 
         $script:currentTheme = $ThemeName
@@ -1056,7 +1061,7 @@ function Apply-Theme {
 
         if ([System.Windows.Application]::Current) {
             $appResources = [System.Windows.Application]::Current.Resources
-            $existingTheme = @($appResources.MergedDictionaries | Where-Object { $_.Source -eq $null -and $_.Count -gt 0 -and -not $_.Contains("ToolBarButtonBaseStyle") })
+            $existingTheme = @($appResources.MergedDictionaries | Where-Object { $_.Source -eq $null -and $_.Contains("__HksUtilTheme__") })
             foreach ($dict in $existingTheme) { $appResources.MergedDictionaries.Remove($dict) }
             $appResources.MergedDictionaries.Add($newDict)
         } elseif ($sync.window) {
@@ -1271,7 +1276,6 @@ if ($script:embeddedXaml) {
     } catch { Write-Log "FATAL ERROR loading UI: $_" "Error"; pause; exit }
 }
 
-$sync.controls = @{}
 $xaml.SelectNodes("//*[@Name]") | ForEach-Object { $sync.controls[$_.Name] = $sync.window.FindName($_.Name) }
 foreach ($k in @($sync.controls.Keys)) { if (-not $sync.controls[$k]) { $sync.controls.Remove($k) } }
 
@@ -1279,7 +1283,7 @@ $buildSuffix = if ($sync.build) { " (build $($sync.build))" } else { "" }
 $sync.window.Title = "HksUtil v$($sync.version)$buildSuffix - Windows Optimizer"
 if ($sync.controls["TitleVersionText"]) { $sync.controls["TitleVersionText"].Text = "v$($sync.version)$buildSuffix" }
 Apply-Theme "light"
-if ($sync.controls["TitleText"]) { $sync.controls["TitleText"].Add_MouseLeftButtonDown({ $sync.window.DragMove() }) }
+if ($sync.controls["TitleText"]) { $sync.controls["TitleText"].Add_MouseLeftButtonDown({ try { $sync.window.DragMove() } catch { } }) }
 
 Update-InstalledCache
 
@@ -1433,7 +1437,7 @@ function Apply-Filters {
                         $tb = $btn.Content
                         if ($tb -is [System.Windows.Controls.StackPanel]) {
                             $innerSp = $tb.Children | Where-Object { $_ -is [System.Windows.Controls.StackPanel] } | Select-Object -First 1
-                            if ($innerSp) { ($innerSp.Children | Select-Object -First 1).Text.ToString().ToLower() } else { "" }
+                            if ($innerSp) { $firstChild = $innerSp.Children | Select-Object -First 1; if ($firstChild -is [System.Windows.Controls.TextBlock]) { $firstChild.Text.ToLower() } else { "" } } else { "" }
                         } else { "" }
                     } else { "" }
                     $tooltip = if ($btn.ToolTip -ne $null) { $btn.ToolTip.ToString().ToLower() } else { "" }
@@ -1481,6 +1485,10 @@ if ($sync.controls["BtnToolbarMaximize"]) {
     $sync.controls["BtnToolbarMaximize"].Add_Click({
         $sync.window.WindowState = if ($sync.window.WindowState -eq "Maximized") { "Normal" } else { "Maximized" }
     })
+}
+
+if ($sync.controls["GearPopup"]) {
+    $sync.controls["GearPopup"].Add_Closed({ if ($sync.controls["BtnToolbarSettings"]) { $sync.controls["BtnToolbarSettings"].IsChecked = $false } })
 }
 
 if ($sync.controls["BtnGearExport"]) {
@@ -1701,9 +1709,9 @@ if ($sync.controls["BtnCreateShortcut"]) {
                 return
             }
             $target = "$env:SystemRoot\System32\WindowsPowerShell\v1.0\powershell.exe"
-            $innerArgs = "-ExecutionPolicy Bypass -NoProfile -File `"$scriptPath`""
-            $innerArgsEscaped = $innerArgs -replace '"', '\"'
-            $shortcutArgs = "-ExecutionPolicy Bypass -NoProfile -Command `"Start-Process powershell.exe -Verb RunAs -ArgumentList '$innerArgsEscaped'`""
+            $cmd = "Start-Process powershell.exe -Verb RunAs -ArgumentList '-ExecutionPolicy Bypass -NoProfile -File `"$scriptPath`"'"
+            $encoded = [Convert]::ToBase64String([Text.Encoding]::Unicode.GetBytes($cmd))
+            $shortcutArgs = "-ExecutionPolicy Bypass -NoProfile -EncodedCommand $encoded"
 
             $wshell = New-Object -ComObject WScript.Shell
             $shortcut = $wshell.CreateShortcut($lnkPath)
@@ -1805,14 +1813,13 @@ function Update-AppBadges {
     if (-not $script:installedAppIds -or $appCheckboxes.Count -eq 0) { return }
     foreach ($cb in $appCheckboxes) {
         $id = if ($cb.Tag -ne $null) { $cb.Tag.ToString() } else { "" }
+        if ($cb.Content -isnot [System.Windows.Controls.StackPanel]) { continue }
         $sp = $cb.Content
-        if ($sp -and $sp -is [System.Windows.Controls.StackPanel]) {
-            $existingBadges = @($sp.Children | Where-Object { $_ -is [System.Windows.Controls.TextBlock] -and $_.Text -eq " ✓" })
-            foreach ($b in $existingBadges) { $sp.Children.Remove($b) }
-            if ($id -and $script:installedAppIds.ContainsKey($id)) {
-                $badge = New-Object System.Windows.Controls.TextBlock; $badge.Text = " ✓"; $badge.Foreground = [System.Windows.Media.Brushes]::LimeGreen; $badge.FontSize = 12; $badge.FontWeight = "Bold"; $badge.VerticalAlignment = "Center"; $badge.ToolTip = "Installed"
-                $null = $sp.Children.Add($badge)
-            }
+        $existingBadges = @($sp.Children | Where-Object { $_ -is [System.Windows.Controls.TextBlock] -and $_.Text -eq " ✓" })
+        foreach ($b in $existingBadges) { $sp.Children.Remove($b) }
+        if ($id -and $script:installedAppIds.ContainsKey($id)) {
+            $badge = New-Object System.Windows.Controls.TextBlock; $badge.Text = " ✓"; $badge.Foreground = [System.Windows.Media.Brushes]::LimeGreen; $badge.FontSize = 12; $badge.FontWeight = "Bold"; $badge.VerticalAlignment = "Center"; $badge.ToolTip = "Installed"
+            $null = $sp.Children.Add($badge)
         }
     }
 }

@@ -84,7 +84,7 @@ function Write-Log {
     try {
         $logLine = if ($Type -eq "Header") { "`n$timestamp === $Message ===" } else { "$timestamp [$($prefix.PadRight(5))] $Message" }
         Add-Content -Path $script:logFilePath -Value $logLine -Encoding UTF8 -ErrorAction SilentlyContinue
-    } catch {}
+    } catch { Write-Host "  Log write failed: $_" -ForegroundColor Yellow }
     if ($script:logBuffer.Count -ge $script:logMaxBuffer) { $script:logBuffer.RemoveAt(0) }
     $script:logBuffer.Add(@{ Timestamp = $timestamp; Level = $Type; Message = $Message })
 }

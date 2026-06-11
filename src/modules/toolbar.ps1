@@ -12,6 +12,10 @@ if ($sync.controls["BtnToolbarMaximize"]) {
     })
 }
 
+if ($sync.controls["GearPopup"]) {
+    $sync.controls["GearPopup"].Add_Closed({ if ($sync.controls["BtnToolbarSettings"]) { $sync.controls["BtnToolbarSettings"].IsChecked = $false } })
+}
+
 if ($sync.controls["BtnGearExport"]) {
     $sync.controls["BtnGearExport"].Add_Click({
         try {
