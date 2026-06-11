@@ -20,7 +20,7 @@ def json_to_pscode(obj):
             val = json_to_pscode(v)
             k_esc = k.replace("'", "''")
             pairs.append(f"'{k_esc}' = {val}")
-        return '@{' + '; '.join(pairs) + '}'
+        return '[PSCustomObject]@{' + '; '.join(pairs) + '}'
     elif isinstance(obj, bool):
         return '$true' if obj else '$false'
     elif isinstance(obj, int) or isinstance(obj, float):

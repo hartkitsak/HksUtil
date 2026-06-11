@@ -22,7 +22,7 @@ function ConvertTo-PSCode {
             $key = $_.Name.Replace("'", "''")
             "'$key' = $val"
         }
-        return "@{" + ($pairs -join '; ') + "}"
+        return "[PSCustomObject]@{" + ($pairs -join '; ') + "}"
     } elseif ($Obj -is [bool]) {
         if ($Obj) { return '$true' } else { return '$false' }
     } elseif ($Obj -is [int] -or $Obj -is [long] -or $Obj -is [double]) {
