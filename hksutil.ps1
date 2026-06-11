@@ -1615,6 +1615,35 @@ if ($sync.controls["BtnApplyDns"]) {
         $dns = $sync.configs.dns.$dnsName
         $ipv4 = if ($dns.PSObject.Properties.Name -contains "ipv4") { $dns.ipv4 } else { @() }
         Show-Progress -Text "Applying DNS..." -Value 0.3
+
+        $hasNetAdapter = Get-Command Get-NetAdapter -ErrorAction SilentlyContinue
+        if (-not $hasNetAdapter) {
+            try { Import-Module NetAdapter -ErrorAction Stop; $hasNetAdapter = $true } catch { $hasNetAdapter = $false }
+        }
+
+        if (-not $hasNetAdapter) {
+            Write-Log "Get-NetAdapter unavailable; using netsh." "Info"
+            $adapters = @()
+            try { $nics = netsh interface show interface | Select-String 'Connected' | ForEach-Object { ($_ -split '\s{2,}')[-1].Trim() } } catch {}
+            if ($nics.Count -eq 0) { Write-Log "No active network adapter found." "Error"; Hide-Progress; return }
+            if ($dnsName -eq "Default_DHCP") {
+                if (-not (Show-Confirm "Reset DNS" "Reset DNS to default DHCP on all adapters?")) { Hide-Progress; return }
+                Write-Log "Resetting DNS to DHCP via netsh..." "Info"
+                try { foreach ($n in $nics) { netsh interface ip set dns "$n" dhcp }; Write-Log "DNS reset to DHCP." "Success"; Hide-Progress; Show-Info "DNS Reset" "DNS has been reset to DHCP." } catch { Write-Log "Failed to reset DNS via netsh: $_" "Error"; Hide-Progress }
+                return
+            }
+            if (-not (Show-Confirm "Apply DNS" "Set DNS to $dnsName?`n`nIPv4: $($ipv4 -join ', ')") ) { Hide-Progress; return }
+            Show-Progress -Text "Applying $dnsName via netsh..." -Value 0.6
+            try {
+                foreach ($n in $nics) {
+                    netsh interface ip set dns "$n" static $($ipv4[0])
+                    for ($i = 1; $i -lt $ipv4.Count; $i++) { netsh interface ip add dns "$n" $($ipv4[$i]) index=$($i+1) }
+                }
+                Write-Log "DNS set to $dnsName via netsh." "Success"; Hide-Progress; Show-Info "DNS Applied" "DNS set to $dnsName via netsh.`n$($ipv4 -join ', ')"
+            } catch { Write-Log "Failed to set DNS via netsh: $_" "Error"; Hide-Progress }
+            return
+        }
+
         if ($dnsName -eq "Default_DHCP") {
             if (-not (Show-Confirm "Reset DNS" "Reset DNS to default DHCP on all adapters?")) { Hide-Progress; return }
             Write-Log "Resetting DNS to DHCP..." "Info"
