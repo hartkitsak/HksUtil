@@ -13,7 +13,7 @@ if ($sync.controls["DnsRadioPanel"] -and $sync.configs.dns) {
         $sp = New-Object System.Windows.Controls.StackPanel; $sp.Orientation = "Horizontal"; $sp.VerticalAlignment = "Center"
         $nameTb = New-Object System.Windows.Controls.TextBlock; $nameTb.Text = "$dnsName - $($dns.description)"; $nameTb.FontSize = 12; $nameTb.FontWeight = "SemiBold"; $nameTb.VerticalAlignment = "Center"; $nameTb.SetResourceReference([System.Windows.Controls.TextBlock]::ForegroundProperty, "pageTitleColor")
         $sp.Children.Add($nameTb) | Out-Null
-        $ipTb = New-Object System.Windows.Controls.TextBlock; $ipDisplay = if ($dns.PSObject.Properties.Name -contains "ipv4" -and $dns.ipv4.Count -gt 0) { $dns.ipv4 -join ", " } else { "Auto (DHCP)" }; $ipTb.Text = "  $ipDisplay"; $ipTb.FontSize = 10; $ipTb.FontFamily = "Consolas"; $ipTb.VerticalAlignment = "Center"; $ipTb.SetResourceReference([System.Windows.Controls.TextBlock]::ForegroundProperty, "textMuted")
+        $ipv4Display = if ($dns.PSObject.Properties.Name -contains "ipv4" -and $dns.ipv4.Count -gt 0) { $dns.ipv4 -join ", " } else { "Auto (DHCP)" }; $ipv6Display = if ($dns.PSObject.Properties.Name -contains "ipv6" -and $dns.ipv6.Count -gt 0) { " | IPv6: $($dns.ipv6 -join ', ')" } else { "" }; $ipTb = New-Object System.Windows.Controls.TextBlock; $ipTb.Text = "  $ipv4Display$ipv6Display"; $ipTb.FontSize = 10; $ipTb.FontFamily = "Consolas"; $ipTb.VerticalAlignment = "Center"; $ipTb.SetResourceReference([System.Windows.Controls.TextBlock]::ForegroundProperty, "textMuted")
         $sp.Children.Add($ipTb) | Out-Null
         $rb.Content = $sp
         $rb.Add_Checked({ Write-Log "DNS selected: $($this.Tag)" "Info" })
@@ -65,7 +65,7 @@ if ($sync.controls["BtnApplyDns"]) {
             if (-not (Show-Confirm "Reset DNS" "Reset DNS to default DHCP on all adapters?")) { Hide-Progress; return }
             Write-Log "Resetting DNS to DHCP..." "Info"
             try {
-                $adapters = Get-NetAdapter -Physical | Where-Object { $_.Status -eq 'Up' }
+                $adapters = Get-NetAdapter | Where-Object { $_.Status -eq 'Up' }
                 if (-not $adapters) { Write-Log "No active network adapter found." "Error"; Hide-Progress; return }
                 foreach ($adapter in $adapters) { Set-DnsClientServerAddress -InterfaceIndex $adapter.ifIndex -ResetServerAddresses }
                 Write-Log "DNS reset to DHCP on $($adapters.Count) adapter(s)." "Success"
@@ -76,7 +76,7 @@ if ($sync.controls["BtnApplyDns"]) {
         if (-not (Show-Confirm "Apply DNS" "Set DNS to $dnsName?`n`nIPv4: $($ipv4 -join ', ')") ) { Hide-Progress; return }
         Write-Log "Setting DNS to $dnsName..." "Info"
         try {
-            $adapters = Get-NetAdapter -Physical | Where-Object { $_.Status -eq 'Up' }
+            $adapters = Get-NetAdapter | Where-Object { $_.Status -eq 'Up' }
             if (-not $adapters) { Write-Log "No active network adapter found." "Error"; Hide-Progress; return }
             $ipv6 = if ($dns.PSObject.Properties.Name -contains "ipv6") { $dns.ipv6 } else { @() }
             Show-Progress -Text "Applying $dnsName..." -Value 0.6
@@ -88,7 +88,7 @@ if ($sync.controls["BtnApplyDns"]) {
         } catch {
             Write-Log "Failed to set DNS: $_" "Error"
             try {
-                $adapters = Get-NetAdapter -Physical | Where-Object { $_.Status -eq 'Up' }
+                $adapters = Get-NetAdapter | Where-Object { $_.Status -eq 'Up' }
                 if (-not $adapters) { Write-Log "No active adapter for netsh." "Error"; Hide-Progress; return }
                 Show-Progress -Text "Retrying via netsh..." -Value 0.7
                 foreach ($adapter in $adapters) {

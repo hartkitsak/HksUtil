@@ -45,7 +45,7 @@ HH   HH KK  KK       SS  UU   UU   TT     II   LL
 HH   HH KK   KK  SSSSSS   UUUUU    TT   IIIIII LLLL
 "@ -ForegroundColor Cyan
     Write-Host "  ========================" -ForegroundColor Cyan
-    Write-Host "    HksUtil v$($sync.version)" -ForegroundColor Cyan
+    $ver = if ($sync.version) { $sync.version } else { "3.0" }; Write-Host "    HksUtil v$ver" -ForegroundColor Cyan
     Write-Host "    Windows Optimizer" -ForegroundColor Cyan
     Write-Host "  ========================" -ForegroundColor Cyan
 }

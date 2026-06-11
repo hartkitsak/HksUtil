@@ -1,4 +1,6 @@
-$script:pkgManager = "winget"
+$savedPkg = Join-Path $env:TEMP "HksUtil-pkg.txt"
+$script:pkgManager = if (Test-Path $savedPkg) { Get-Content $savedPkg -Raw -ErrorAction SilentlyContinue } else { "winget" }
+if ($script:pkgManager -notin @("winget","choco")) { $script:pkgManager = "winget" }
 
 function Ensure-PackageManager {
     param([string]$Pkg)
@@ -105,6 +107,6 @@ function Register-InstallEvents {
         })
     }
 
-    if ($sync.controls["PkgWinGet"]) { $sync.controls["PkgWinGet"].Add_Checked({ $script:pkgManager = "winget"; Write-Log "Package manager: WinGet" "Info" }) }
-    if ($sync.controls["PkgChoco"]) { $sync.controls["PkgChoco"].Add_Checked({ $script:pkgManager = "choco"; Write-Log "Package manager: Chocolatey" "Info" }) }
+    if ($sync.controls["PkgWinGet"]) { $sync.controls["PkgWinGet"].Add_Checked({ $script:pkgManager = "winget"; $savedPkg | Set-Content -Value "winget" -Force; Write-Log "Package manager: WinGet" "Info" }) }
+    if ($sync.controls["PkgChoco"]) { $sync.controls["PkgChoco"].Add_Checked({ $script:pkgManager = "choco"; $savedPkg | Set-Content -Value "choco" -Force; Write-Log "Package manager: Chocolatey" "Info" }) }
 }

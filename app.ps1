@@ -5,6 +5,8 @@
     Version : development — run .\scripts\Combine.ps1 to build hksutil.ps1
 #>
 
+[Net.ServicePointManager]::SecurityProtocol = [Net.ServicePointManager]::SecurityProtocol -bor 3072
+
 # Manual arg parsing (no param() — supports irm | iex)
 $Config = $null; $Noui = $false; $Apply = $false; $Verbose = $false
 $i = 0
@@ -38,7 +40,7 @@ if (-not $isAdmin) {
     if ($Noui) { $argList += "-Noui" }
     if ($Apply) { $argList += "-Apply" }
     if ($Verbose) { $argList += "-Verbose" }
-    $isTemp = $PSCommandPath -and ($PSCommandPath -like "$($env:TEMP)*")
+    $isTemp = $PSCommandPath -and ($PSCommandPath -like "$($env:TEMP)\*")
     $scriptCmd = if ($PSCommandPath -and -not $isTemp) {
         $escapedPath = $PSCommandPath.Replace("'", "''")
         "& { & '$escapedPath' $($argList -join ' ') }"
@@ -148,7 +150,6 @@ if ($sync.controls["TitleVersionText"]) { $sync.controls["TitleVersionText"].Tex
 Apply-Theme "light"
 if ($sync.controls["TitleText"]) { $sync.controls["TitleText"].Add_MouseLeftButtonDown({ try { $sync.window.DragMove() } catch { } }) }
 
-Update-InstalledCache
 . "$PSScriptRoot\src\modules\navigation.ps1"
 . "$PSScriptRoot\src\modules\search.ps1"
 . "$PSScriptRoot\src\modules\toolbar.ps1"
@@ -211,10 +212,6 @@ if ($Config -and -not $Apply) {
         }
     } catch { Write-Log "Config load failed: $_" "Error" }
 }
-
-$sync.window.Add_Closing({
-    [System.GC]::Collect()
-})
 
 try { $sync.window.ShowDialog() | Out-Null } catch { Write-Log "UI Runtime Error: $_" "Error"; pause }
 Write-Log "HksUtil Closed." "Header"

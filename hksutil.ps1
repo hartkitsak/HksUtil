@@ -15,6 +15,8 @@
     Version : development — run .\scripts\Combine.ps1 to build hksutil.ps1
 #>
 
+[Net.ServicePointManager]::SecurityProtocol = [Net.ServicePointManager]::SecurityProtocol -bor 3072
+
 # Manual arg parsing (no param() — supports irm | iex)
 $Config = $null; $Noui = $false; $Apply = $false; $Verbose = $false
 $i = 0
@@ -48,7 +50,7 @@ if (-not $isAdmin) {
     if ($Noui) { $argList += "-Noui" }
     if ($Apply) { $argList += "-Apply" }
     if ($Verbose) { $argList += "-Verbose" }
-    $isTemp = $PSCommandPath -and ($PSCommandPath -like "$($env:TEMP)*")
+    $isTemp = $PSCommandPath -and ($PSCommandPath -like "$($env:TEMP)\*")
     $scriptCmd = if ($PSCommandPath -and -not $isTemp) {
         $escapedPath = $PSCommandPath.Replace("'", "''")
         "& { & '$escapedPath' $($argList -join ' ') }"
@@ -86,7 +88,7 @@ $script:embeddedXaml = @'
 <Window xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:primitives="clr-namespace:System.Windows.Controls.Primitives;assembly=PresentationFramework"
-        Title="HksUtil v2.0 - Windows Optimizer" Width="1200" Height="750" MinWidth="1000" MinHeight="600"
+        Title="HksUtil v3.0 - Windows Optimizer" Width="1200" Height="750" MinWidth="1000" MinHeight="600"
         WindowStartupLocation="CenterScreen" Background="{DynamicResource windowBackground}"
         WindowStyle="None"
         ResizeMode="CanResizeWithGrip">
@@ -513,7 +515,7 @@ $script:embeddedXaml = @'
                                 <Grid>
                                     <TextBox x:Name="SearchBox" Padding="6,3" Background="Transparent" Foreground="{DynamicResource textBoxForeground}" BorderThickness="0"/>
                                     <TextBlock x:Name="SearchHint" Text="Search..." Foreground="{DynamicResource textMuted}" Margin="6,3,0,0" IsHitTestVisible="False" Visibility="Visible"/>
-                                    <Button x:Name="BtnClearSearch" Content="X" Width="22" Height="22" HorizontalAlignment="Right" Margin="0,0,4,0" Background="{DynamicResource hoverBackground}" Foreground="{DynamicResource textMuted}" BorderBrush="{DynamicResource textBoxBorder}" BorderThickness="1" FontSize="10" Cursor="Hand" FontWeight="Bold"/>
+                                    <Button x:Name="BtnClearSearch" Content="&#xE711;" Width="22" Height="22" HorizontalAlignment="Right" Margin="0,0,4,0" Background="{DynamicResource hoverBackground}" Foreground="{DynamicResource textMuted}" BorderBrush="{DynamicResource textBoxBorder}" BorderThickness="1" FontFamily="Segoe MDL2 Assets" FontSize="10" Cursor="Hand"/>
                                 </Grid>
                             </Border>
                             <StackPanel Grid.Column="1" Orientation="Horizontal">
@@ -672,7 +674,7 @@ HH   HH KK  KK       SS  UU   UU   TT     II   LL
 HH   HH KK   KK  SSSSSS   UUUUU    TT   IIIIII LLLL
 "@ -ForegroundColor Cyan
     Write-Host "  ========================" -ForegroundColor Cyan
-    Write-Host "    HksUtil v$($sync.version)" -ForegroundColor Cyan
+    $ver = if ($sync.version) { $sync.version } else { "3.0" }; Write-Host "    HksUtil v$ver" -ForegroundColor Cyan
     Write-Host "    Windows Optimizer" -ForegroundColor Cyan
     Write-Host "  ========================" -ForegroundColor Cyan
 }
@@ -1074,7 +1076,9 @@ function Apply-Theme {
 
 
 # ============ install.ps1 ============
-$script:pkgManager = "winget"
+$savedPkg = Join-Path $env:TEMP "HksUtil-pkg.txt"
+$script:pkgManager = if (Test-Path $savedPkg) { Get-Content $savedPkg -Raw -ErrorAction SilentlyContinue } else { "winget" }
+if ($script:pkgManager -notin @("winget","choco")) { $script:pkgManager = "winget" }
 
 function Ensure-PackageManager {
     param([string]$Pkg)
@@ -1181,8 +1185,8 @@ function Register-InstallEvents {
         })
     }
 
-    if ($sync.controls["PkgWinGet"]) { $sync.controls["PkgWinGet"].Add_Checked({ $script:pkgManager = "winget"; Write-Log "Package manager: WinGet" "Info" }) }
-    if ($sync.controls["PkgChoco"]) { $sync.controls["PkgChoco"].Add_Checked({ $script:pkgManager = "choco"; Write-Log "Package manager: Chocolatey" "Info" }) }
+    if ($sync.controls["PkgWinGet"]) { $sync.controls["PkgWinGet"].Add_Checked({ $script:pkgManager = "winget"; $savedPkg | Set-Content -Value "winget" -Force; Write-Log "Package manager: WinGet" "Info" }) }
+    if ($sync.controls["PkgChoco"]) { $sync.controls["PkgChoco"].Add_Checked({ $script:pkgManager = "choco"; $savedPkg | Set-Content -Value "choco" -Force; Write-Log "Package manager: Chocolatey" "Info" }) }
 }
 
 
@@ -1281,7 +1285,6 @@ if ($sync.controls["TitleVersionText"]) { $sync.controls["TitleVersionText"].Tex
 Apply-Theme "light"
 if ($sync.controls["TitleText"]) { $sync.controls["TitleText"].Add_MouseLeftButtonDown({ try { $sync.window.DragMove() } catch { } }) }
 
-Update-InstalledCache
 
 
 # ============ POST-XAML MODULES ============
@@ -1600,7 +1603,7 @@ if ($sync.controls["DnsRadioPanel"] -and $sync.configs.dns) {
         $sp = New-Object System.Windows.Controls.StackPanel; $sp.Orientation = "Horizontal"; $sp.VerticalAlignment = "Center"
         $nameTb = New-Object System.Windows.Controls.TextBlock; $nameTb.Text = "$dnsName - $($dns.description)"; $nameTb.FontSize = 12; $nameTb.FontWeight = "SemiBold"; $nameTb.VerticalAlignment = "Center"; $nameTb.SetResourceReference([System.Windows.Controls.TextBlock]::ForegroundProperty, "pageTitleColor")
         $sp.Children.Add($nameTb) | Out-Null
-        $ipTb = New-Object System.Windows.Controls.TextBlock; $ipDisplay = if ($dns.PSObject.Properties.Name -contains "ipv4" -and $dns.ipv4.Count -gt 0) { $dns.ipv4 -join ", " } else { "Auto (DHCP)" }; $ipTb.Text = "  $ipDisplay"; $ipTb.FontSize = 10; $ipTb.FontFamily = "Consolas"; $ipTb.VerticalAlignment = "Center"; $ipTb.SetResourceReference([System.Windows.Controls.TextBlock]::ForegroundProperty, "textMuted")
+        $ipv4Display = if ($dns.PSObject.Properties.Name -contains "ipv4" -and $dns.ipv4.Count -gt 0) { $dns.ipv4 -join ", " } else { "Auto (DHCP)" }; $ipv6Display = if ($dns.PSObject.Properties.Name -contains "ipv6" -and $dns.ipv6.Count -gt 0) { " | IPv6: $($dns.ipv6 -join ', ')" } else { "" }; $ipTb = New-Object System.Windows.Controls.TextBlock; $ipTb.Text = "  $ipv4Display$ipv6Display"; $ipTb.FontSize = 10; $ipTb.FontFamily = "Consolas"; $ipTb.VerticalAlignment = "Center"; $ipTb.SetResourceReference([System.Windows.Controls.TextBlock]::ForegroundProperty, "textMuted")
         $sp.Children.Add($ipTb) | Out-Null
         $rb.Content = $sp
         $rb.Add_Checked({ Write-Log "DNS selected: $($this.Tag)" "Info" })
@@ -1652,7 +1655,7 @@ if ($sync.controls["BtnApplyDns"]) {
             if (-not (Show-Confirm "Reset DNS" "Reset DNS to default DHCP on all adapters?")) { Hide-Progress; return }
             Write-Log "Resetting DNS to DHCP..." "Info"
             try {
-                $adapters = Get-NetAdapter -Physical | Where-Object { $_.Status -eq 'Up' }
+                $adapters = Get-NetAdapter | Where-Object { $_.Status -eq 'Up' }
                 if (-not $adapters) { Write-Log "No active network adapter found." "Error"; Hide-Progress; return }
                 foreach ($adapter in $adapters) { Set-DnsClientServerAddress -InterfaceIndex $adapter.ifIndex -ResetServerAddresses }
                 Write-Log "DNS reset to DHCP on $($adapters.Count) adapter(s)." "Success"
@@ -1663,7 +1666,7 @@ if ($sync.controls["BtnApplyDns"]) {
         if (-not (Show-Confirm "Apply DNS" "Set DNS to $dnsName?`n`nIPv4: $($ipv4 -join ', ')") ) { Hide-Progress; return }
         Write-Log "Setting DNS to $dnsName..." "Info"
         try {
-            $adapters = Get-NetAdapter -Physical | Where-Object { $_.Status -eq 'Up' }
+            $adapters = Get-NetAdapter | Where-Object { $_.Status -eq 'Up' }
             if (-not $adapters) { Write-Log "No active network adapter found." "Error"; Hide-Progress; return }
             $ipv6 = if ($dns.PSObject.Properties.Name -contains "ipv6") { $dns.ipv6 } else { @() }
             Show-Progress -Text "Applying $dnsName..." -Value 0.6
@@ -1675,7 +1678,7 @@ if ($sync.controls["BtnApplyDns"]) {
         } catch {
             Write-Log "Failed to set DNS: $_" "Error"
             try {
-                $adapters = Get-NetAdapter -Physical | Where-Object { $_.Status -eq 'Up' }
+                $adapters = Get-NetAdapter | Where-Object { $_.Status -eq 'Up' }
                 if (-not $adapters) { Write-Log "No active adapter for netsh." "Error"; Hide-Progress; return }
                 Show-Progress -Text "Retrying via netsh..." -Value 0.7
                 foreach ($adapter in $adapters) {
@@ -2005,10 +2008,6 @@ if ($Config -and -not $Apply) {
         }
     } catch { Write-Log "Config load failed: $_" "Error" }
 }
-
-$sync.window.Add_Closing({
-    [System.GC]::Collect()
-})
 
 try { $sync.window.ShowDialog() | Out-Null } catch { Write-Log "UI Runtime Error: $_" "Error"; pause }
 Write-Log "HksUtil Closed." "Header"
