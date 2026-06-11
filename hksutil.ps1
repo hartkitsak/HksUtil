@@ -1702,13 +1702,14 @@ if ($sync.controls["BtnCreateShortcut"]) {
         $lnkPath = Join-Path ([Environment]::GetFolderPath("Desktop")) "HksUtil.lnk"
         if (Test-Path $lnkPath) { if (-not (Show-Confirm "Overwrite?" "Shortcut exists. Overwrite?")) { return } }
         try {
-            $scriptPath = if ($PSCommandPath -and (Test-Path $PSCommandPath)) { $PSCommandPath } else { Join-Path $script:appRoot "app.ps1" }
-            if (-not (Test-Path $scriptPath)) {
-                Show-Info "Shortcut Failed" "Cannot locate script at:`n$scriptPath`n`nUse -Dev mode, or save hksutil.ps1 to disk first."
-                return
+            $isTempPath = $PSCommandPath -and ($PSCommandPath -like "$($env:TEMP)\*")
+            if ($PSCommandPath -and -not $isTempPath -and (Test-Path $PSCommandPath)) {
+                $target = "$env:SystemRoot\System32\WindowsPowerShell\v1.0\powershell.exe"
+                $cmd = "Start-Process powershell.exe -Verb RunAs -ArgumentList '-ExecutionPolicy Bypass -NoProfile -File `"$PSCommandPath`"'"
+            } else {
+                $target = "$env:SystemRoot\System32\WindowsPowerShell\v1.0\powershell.exe"
+                $cmd = "Start-Process powershell.exe -Verb RunAs -ArgumentList '-ExecutionPolicy Bypass -NoProfile -Command `"& { `$f = Join-Path `$env:TEMP 'hksutil.ps1'; Invoke-WebRequest -Uri 'https://raw.githubusercontent.com/hartkitsak/HksUtil/main/hksutil.ps1' -OutFile `$f -UseBasicParsing; & `$f }`"'"
             }
-            $target = "$env:SystemRoot\System32\WindowsPowerShell\v1.0\powershell.exe"
-            $cmd = "Start-Process powershell.exe -Verb RunAs -ArgumentList '-ExecutionPolicy Bypass -NoProfile -File `"$scriptPath`"'"
             $encoded = [Convert]::ToBase64String([Text.Encoding]::Unicode.GetBytes($cmd))
             $shortcutArgs = "-ExecutionPolicy Bypass -NoProfile -EncodedCommand $encoded"
 
@@ -1717,7 +1718,7 @@ if ($sync.controls["BtnCreateShortcut"]) {
             $shortcut.TargetPath = $target
             $shortcut.Arguments = $shortcutArgs
             $shortcut.Description = "HksUtil v$($sync.version) - Windows Optimizer"
-            $shortcut.WorkingDirectory = (Split-Path $scriptPath -Parent)
+            $shortcut.WorkingDirectory = if ($PSCommandPath -and -not $isTempPath -and (Test-Path $PSCommandPath)) { Split-Path $PSCommandPath -Parent } else { $env:USERPROFILE }
             $shortcut.IconLocation = "$([Environment]::SystemDirectory)\imageres.dll, 109"
             $shortcut.WindowStyle = 7
             $shortcut.Save()
@@ -1987,10 +1988,10 @@ if ($sync.controls["ChkShowInstalled"]) {
     $sync.controls["ChkShowInstalled"].Add_Unchecked({ Apply-Filters })
 }
 
+Update-InstalledCache
 Update-AppBadges
 Switch-Page "Install"
 Set-Status "Ready"
-Update-InstalledCache
 Write-Log "GUI Loaded. Waiting for input..." "Success"
 
 if ($Config -and -not $Apply) {

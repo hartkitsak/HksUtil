@@ -191,10 +191,10 @@ if ($sync.controls["ChkShowInstalled"]) {
     $sync.controls["ChkShowInstalled"].Add_Unchecked({ Apply-Filters })
 }
 
+Update-InstalledCache
 Update-AppBadges
 Switch-Page "Install"
 Set-Status "Ready"
-Update-InstalledCache
 Write-Log "GUI Loaded. Waiting for input..." "Success"
 
 if ($Config -and -not $Apply) {
