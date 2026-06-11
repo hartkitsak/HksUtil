@@ -1708,7 +1708,7 @@ if ($sync.controls["BtnCreateShortcut"]) {
                 $cmd = "Start-Process powershell.exe -Verb RunAs -ArgumentList '-ExecutionPolicy Bypass -NoProfile -File `"$PSCommandPath`"'"
             } else {
                 $target = "$env:SystemRoot\System32\WindowsPowerShell\v1.0\powershell.exe"
-                $cmd = "Start-Process powershell.exe -Verb RunAs -ArgumentList '-ExecutionPolicy Bypass -NoProfile -Command `"& { `$f = Join-Path `$env:TEMP 'hksutil.ps1'; Invoke-WebRequest -Uri 'https://raw.githubusercontent.com/hartkitsak/HksUtil/main/hksutil.ps1' -OutFile `$f -UseBasicParsing; & `$f }`"'"
+                $cmd = "Invoke-WebRequest -Uri 'https://raw.githubusercontent.com/hartkitsak/HksUtil/main/install.ps1' -UseBasicParsing | Invoke-Expression"
             }
             $encoded = [Convert]::ToBase64String([Text.Encoding]::Unicode.GetBytes($cmd))
             $shortcutArgs = "-ExecutionPolicy Bypass -NoProfile -EncodedCommand $encoded"
