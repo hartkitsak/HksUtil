@@ -1,0 +1,14 @@
+{
+  "light": {
+    "windowBackground": "#F4F8FC", "headerBackground": "#FFFFFF", "headerBorder": "#C4D9ED",
+    "footerBackground": "#FFFFFF", "footerBorder": "#C4D9ED",
+    "cardBackground": "#FFFFFF", "cardForeground": "#1A2733", "cardBorder": "#BDD3E8",
+    "accentColor": "#4D9DE0", "accentHover": "#3A87C8",
+    "pageTitleColor": "#1A2733", "categoryHeaderColor": "#4D9DE0", "textMuted": "#7A96AE",
+    "textBoxBackground": "#FFFFFF", "textBoxForeground": "#1A2733", "textBoxBorder": "#BDD3E8",
+    "dangerColor": "#C0392B", "dangerHover": "#962D22",
+    "successColor": "#2ECC71", "warningColor": "#F39C12", "infoColor": "#4D9DE0",
+    "selectedBorder": "#4D9DE0", "selectedBackground": "#E0EEFA",
+    "hoverBackground": "#EBF3FA", "secondaryBackground": "#FFFFFF", "secondaryHover": "#EBF3FA"
+  }
+}

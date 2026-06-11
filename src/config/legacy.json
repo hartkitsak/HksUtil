@@ -1,0 +1,19 @@
+[
+  { "key": "rstrui", "content": "System Restore", "command": "rstrui.exe", "description": "Create or restore system restore points" },
+  { "key": "ncpa", "content": "Network Information", "command": "ncpa.cpl", "description": "Manage network adapters and connections" },
+  { "key": "wscui", "content": "Security Center", "command": "wscui.cpl", "description": "View Windows Security Center status" },
+  { "key": "sysdm", "content": "System Properties", "command": "sysdm.cpl", "description": "View system info, performance, remote settings" },
+  { "key": "msinfo32", "content": "System Information", "command": "msinfo32", "description": "View detailed system hardware and software information" },
+  { "key": "netstat", "content": "TCP/IP Netstat", "command": "cmd /c netstat -an && pause", "description": "Display active network connections and listening ports" },
+  { "key": "osk", "content": "On Screen Keyboard", "command": "osk", "description": "Launch the on-screen keyboard" },
+  { "key": "dfrgui", "content": "Disk Defragmenter", "command": "dfrgui", "description": "Optimize and defragment disk drives" },
+  { "key": "services", "content": "Services", "command": "services.msc", "description": "Manage Windows services and their startup types" },
+  { "key": "fsmgmt", "content": "Shared Folders", "command": "fsmgmt.msc", "description": "Manage shared folders and connections" },
+  { "key": "gpedit", "content": "Group Policy", "command": "gpedit.msc", "description": "Edit Group Policy settings" },
+  { "key": "optionalfeatures", "content": "Add/Remove Windows Components", "command": "OptionalFeatures", "description": "Turn Windows features on or off" },
+  { "key": "mrt", "content": "Malicious Software Removal Tool", "command": "mrt /Q", "description": "Scan and remove malicious software" },
+  { "key": "sdclt", "content": "Windows Backup and Restore", "command": "sdclt", "description": "Backup and restore files or system image" },
+  { "key": "taskschd", "content": "Task Scheduler", "command": "taskschd.msc", "description": "Schedule automated tasks and triggers" },
+  { "key": "chkdsk", "content": "Check Disk", "command": "cmd /c chkdsk && pause", "description": "Check disk for file system errors" },
+  { "key": "sfc", "content": "System File Checker", "command": "cmd /c sfc /scannow && pause", "description": "Scan and repair protected system files" }
+]

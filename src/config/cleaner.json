@@ -1,0 +1,96 @@
+{
+  "Privacy": {
+    "clear_recent_docs": {
+      "content": "Clear Recent Documents History",
+      "description": "Clears the list of recently accessed documents",
+      "script": "Remove-Item -Path 'HKCU:\\Software\\Microsoft\\Windows\\CurrentVersion\\Explorer\\RecentDocs' -Recurse -Force -ErrorAction SilentlyContinue; Remove-Item -Path 'HKCU:\\Software\\Microsoft\\Windows\\CurrentVersion\\Explorer\\ComDlg32\\LastVisitedMRU' -Recurse -Force -ErrorAction SilentlyContinue; Remove-Item -Path 'HKCU:\\Software\\Microsoft\\Windows\\CurrentVersion\\Explorer\\ComDlg32\\OpenSaveMRU' -Recurse -Force -ErrorAction SilentlyContinue"
+    },
+    "clear_run_history": {
+      "content": "Clear Start Menu Run History",
+      "description": "Clears the Run dialog history",
+      "script": "Remove-Item -Path 'HKCU:\\Software\\Microsoft\\Windows\\CurrentVersion\\Explorer\\RunMRU' -Recurse -Force -ErrorAction SilentlyContinue; Remove-Item -Path 'HKCU:\\Software\\Microsoft\\Windows\\CurrentVersion\\Explorer\\TypedPaths' -Recurse -Force -ErrorAction SilentlyContinue"
+    },
+    "clear_find_history": {
+      "content": "Clear Find File History",
+      "description": "Clears the Windows Search/Find history",
+      "script": "Remove-Item -Path 'HKCU:\\Software\\Microsoft\\Windows\\CurrentVersion\\Explorer\\FindComputerMRU' -Recurse -Force -ErrorAction SilentlyContinue; Remove-Item -Path 'HKCU:\\Software\\Microsoft\\Windows\\CurrentVersion\\Explorer\\Doc Find Spec MRU' -Recurse -Force -ErrorAction SilentlyContinue"
+    },
+    "clear_printers_history": {
+      "content": "Clear Printers, Computers and People Find History",
+      "description": "Clears network discovery history",
+      "script": "Remove-Item -Path 'HKCU:\\Software\\Microsoft\\Windows\\CurrentVersion\\Explorer\\PrinterPortsMRU' -Recurse -Force -ErrorAction SilentlyContinue; Remove-Item -Path 'HKCU:\\Software\\Microsoft\\Windows\\CurrentVersion\\Explorer\\ComputerDescriptions' -Recurse -Force -ErrorAction SilentlyContinue"
+    },
+    "clear_mspaint_history": {
+      "content": "Clear MS Paint Recent File History",
+      "description": "Clears the list of recently opened files in Paint",
+      "script": "Remove-Item -Path 'HKCU:\\Software\\Microsoft\\Windows\\CurrentVersion\\Applets\\Paint\\Recent File List' -Recurse -Force -ErrorAction SilentlyContinue; Remove-ItemProperty -Path 'HKCU:\\Software\\Microsoft\\Windows\\CurrentVersion\\Applets\\Paint\\MRU' -Name '*' -Force -ErrorAction SilentlyContinue"
+    },
+    "clear_wordpad_history": {
+      "content": "Clear MS Wordpad Recent File History",
+      "description": "Clears the list of recently opened files in Wordpad",
+      "script": "Remove-Item -Path 'HKCU:\\Software\\Microsoft\\Windows\\CurrentVersion\\Applets\\Wordpad\\Recent File List' -Recurse -Force -ErrorAction SilentlyContinue"
+    },
+    "clear_regedit_history": {
+      "content": "Clear Regedit Last Opened Key History",
+      "description": "Clears the last visited keys in Registry Editor",
+      "script": "Remove-Item -Path 'HKCU:\\Software\\Microsoft\\Windows\\CurrentVersion\\Applets\\Regedit\\Favorites' -Recurse -Force -ErrorAction SilentlyContinue; Remove-ItemProperty -Path 'HKCU:\\Software\\Microsoft\\Windows\\CurrentVersion\\Applets\\Regedit' -Name 'LastKey' -Force -ErrorAction SilentlyContinue"
+    },
+    "clear_common_dialog_history": {
+      "content": "Clear Common Dialog Open/Save Recent History",
+      "description": "Clears the Open/Save dialog history",
+      "script": "Remove-Item -Path 'HKCU:\\Software\\Microsoft\\Windows\\CurrentVersion\\Explorer\\ComDlg32\\OpenSaveMRU' -Recurse -Force -ErrorAction SilentlyContinue"
+    },
+    "clear_common_dialog_folder": {
+      "content": "Clear Common Dialog Last Visited Folder History",
+      "description": "Clears the last visited folder in Open/Save dialogs",
+      "script": "Remove-Item -Path 'HKCU:\\Software\\Microsoft\\Windows\\CurrentVersion\\Explorer\\ComDlg32\\LastVisitedPidlMRU' -Recurse -Force -ErrorAction SilentlyContinue; Remove-ItemProperty -Path 'HKCU:\\Software\\Microsoft\\Windows\\CurrentVersion\\Explorer\\ComDlg32' -Name 'LastVisitedFolder' -Force -ErrorAction SilentlyContinue"
+    },
+    "delete_start_usage_logs": {
+      "content": "Delete Start Menu Usage Logs",
+      "description": "Clears the Start Menu usage tracking data",
+      "script": "Remove-Item -Path 'HKCU:\\Software\\Microsoft\\Windows\\CurrentVersion\\Explorer\\StartPage\\Apps' -Recurse -Force -ErrorAction SilentlyContinue; Remove-Item -Path 'HKCU:\\Software\\Microsoft\\Windows\\CurrentVersion\\Explorer\\StartPage\\RecentApps' -Recurse -Force -ErrorAction SilentlyContinue; Remove-Item -Path 'HKCU:\\Software\\Microsoft\\Windows\\CurrentVersion\\Explorer\\StartPage\\Favorites' -Recurse -Force -ErrorAction SilentlyContinue"
+    },
+    "clear_registry_traces": {
+      "content": "Clear Registry Usage Traces",
+      "description": "Cleans various MRU and usage trace keys from the registry",
+      "script": "Remove-Item -Path 'HKCU:\\Software\\Microsoft\\Windows\\CurrentVersion\\Explorer\\MountPoints2' -Recurse -Force -ErrorAction SilentlyContinue; Remove-Item -Path 'HKCU:\\Software\\Microsoft\\Windows\\CurrentVersion\\Explorer\\StreamMRU' -Recurse -Force -ErrorAction SilentlyContinue; Remove-Item -Path 'HKCU:\\Software\\Microsoft\\Windows\\CurrentVersion\\Explorer\\StuckRects2' -Recurse -Force -ErrorAction SilentlyContinue"
+    }
+  },
+  "System": {
+    "delete_prefetch": {
+      "content": "Delete Prefetch & System Logs",
+      "description": "Deletes Prefetch files and Windows log files",
+      "script": "Remove-Item -Path \"$env:WINDIR\\Prefetch\\*\" -Recurse -Force -ErrorAction SilentlyContinue; Remove-Item -Path \"$env:WINDIR\\Logs\\*\" -Recurse -Force -ErrorAction SilentlyContinue"
+    },
+    "empty_clipboard": {
+      "content": "Empty the Clipboard",
+      "description": "Clears the system clipboard",
+      "script": "$null = [System.Windows.Clipboard]::SetText([string]::Empty)"
+    },
+    "empty_recycle_bin": {
+      "content": "Empty the Recycle Bin",
+      "description": "Permanently deletes all items in the Recycle Bin",
+      "script": "Clear-RecycleBin -Force -ErrorAction SilentlyContinue"
+    },
+    "delete_temp_files": {
+      "content": "Delete Windows Temporary Files",
+      "description": "Deletes temporary files from user and system Temp folders",
+      "script": "Remove-Item -Path \"$env:TEMP\\*\" -Recurse -Force -ErrorAction SilentlyContinue; Remove-Item -Path \"$env:WINDIR\\Temp\\*\" -Recurse -Force -ErrorAction SilentlyContinue; Remove-Item -Path \"$env:WINDIR\\SoftwareDistribution\\Download\\*\" -Recurse -Force -ErrorAction SilentlyContinue"
+    },
+    "delete_crash_dumps": {
+      "content": "Delete Crash Memory Dump Files",
+      "description": "Deletes system crash dump and minidump files",
+      "script": "Remove-Item -Path \"$env:WINDIR\\MEMORY.DMP\" -Force -ErrorAction SilentlyContinue; Remove-Item -Path \"$env:WINDIR\\Minidump\\*\" -Recurse -Force -ErrorAction SilentlyContinue; Remove-Item -Path \"$env:LOCALAPPDATA\\CrashDumps\\*\" -Recurse -Force -ErrorAction SilentlyContinue"
+    },
+    "delete_chkdsk_fragments": {
+      "content": "Delete Chkdsk Recovered File Fragments",
+      "description": "Deletes recovered file fragments from Chkdsk operations",
+      "script": "Remove-Item -Path \"$env:SystemDrive\\FOUND.000\\*\" -Recurse -Force -ErrorAction SilentlyContinue; Remove-Item -Path \"$env:SystemDrive\\FOUND.001\\*\" -Recurse -Force -ErrorAction SilentlyContinue; Remove-Item -Path \"$env:SystemDrive\\FOUND.002\\*\" -Recurse -Force -ErrorAction SilentlyContinue; Remove-Item -Path \"$env:SystemDrive\\FOUND.003\\*\" -Recurse -Force -ErrorAction SilentlyContinue; Remove-Item -Path \"$env:SystemDrive\\FOUND.004\\*\" -Recurse -Force -ErrorAction SilentlyContinue; Remove-Item -Path \"$env:SystemDrive\\FOUND.005\\*\" -Recurse -Force -ErrorAction SilentlyContinue; Remove-Item -Path \"$env:SystemDrive\\FOUND.006\\*\" -Recurse -Force -ErrorAction SilentlyContinue; Remove-Item -Path \"$env:SystemDrive\\FOUND.007\\*\" -Recurse -Force -ErrorAction SilentlyContinue; Remove-Item -Path \"$env:SystemDrive\\FOUND.008\\*\" -Recurse -Force -ErrorAction SilentlyContinue; Remove-Item -Path \"$env:SystemDrive\\FOUND.009\\*\" -Recurse -Force -ErrorAction SilentlyContinue"
+    },
+    "delete_thumbnail_cache": {
+      "content": "Delete Thumbnail Cache",
+      "description": "Clears the Windows thumbnail cache for all users",
+      "script": "try { Stop-Process -Name 'explorer' -Force -ErrorAction SilentlyContinue; Remove-Item -Path \"$env:LOCALAPPDATA\\Microsoft\\Windows\\Explorer\\thumbcache_*.db\" -Force -ErrorAction SilentlyContinue; Remove-Item -Path \"$env:USERPROFILE\\AppData\\Local\\Microsoft\\Windows\\Explorer\\*.db\" -Force -ErrorAction SilentlyContinue } finally { Start-Process 'explorer.exe' -ErrorAction SilentlyContinue }"
+    }
+  }
+}

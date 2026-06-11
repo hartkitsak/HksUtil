@@ -2,15 +2,13 @@
 .NOTES
     Author  : hartkitsak
     GitHub  : https://github.com/hartkitsak/HksUtil
-    Version : development — run .\scripts\Compile.ps1 to build hksutil.ps1
+    Version : development — run .\scripts\Combine.ps1 to build hksutil.ps1
 #>
 
 param(
     [string]$Config,
     [switch]$Noui,
-    [switch]$Offline,
     [switch]$Apply,
-    [string]$Export,
     [switch]$Verbose
 )
 
@@ -29,8 +27,8 @@ if (-not $isAdmin) {
     $argList = @()
     $PSBoundParameters.GetEnumerator() | ForEach-Object {
         $argList += if ($_.Value -is [switch] -and $_.Value) { "-$($_.Key)" }
-        elseif ($_.Value -is [array]) { "-$($_.Key) $($_.Value -join ',')" }
-        elseif ($null -ne $_.Value) { "-$($_.Key) '$($_.Value)'" }
+        elseif ($_.Value -is [array]) { $v = $($_.Value -join ','); "-$($_.Key) '$v'" }
+        elseif ($null -ne $_.Value) { $v = "$($_.Value)".Replace("'", "''"); "-$($_.Key) '$v'" }
     }
     $scriptCmd = if ($PSCommandPath) {
         "& { & '$PSCommandPath' $($argList -join ' ') }"
@@ -39,50 +37,50 @@ if (-not $isAdmin) {
     }
     $powershellCmd = if (Get-Command pwsh -ErrorAction SilentlyContinue) { "pwsh" } else { "powershell.exe" }
     $processCmd = if (Get-Command wt.exe -ErrorAction SilentlyContinue) { "wt.exe" } else { "$powershellCmd" }
-    if ($processCmd -eq "wt.exe") {
-        Start-Process $processCmd -ArgumentList "$powershellCmd -ExecutionPolicy Bypass -NoProfile -Command `"$scriptCmd`"" -Verb RunAs
-    } else {
-        Start-Process $powershellCmd -ArgumentList "-ExecutionPolicy Bypass -NoProfile -Command `"$scriptCmd`"" -Verb RunAs
-    }
+    try {
+        if ($processCmd -eq "wt.exe") {
+            Start-Process $processCmd -ArgumentList "$powershellCmd -ExecutionPolicy Bypass -NoProfile -Command `"$scriptCmd`"" -Verb RunAs
+        } else {
+            Start-Process $powershellCmd -ArgumentList "-ExecutionPolicy Bypass -NoProfile -Command `"$scriptCmd`"" -Verb RunAs
+        }
+    } catch { Write-Host "Elevation cancelled or failed: $_" }
     exit
 }
 
 $sync = [Hashtable]::Synchronized(@{})
-$sync.version = Get-Date -Format 'yy.MM.dd'
+$sync.version = ""
+$sync.build = ""
 $sync.noUI = $Noui
 $sync.configs = @{}
-$sync.controls = @{}
 $sync.ProcessRunning = $false
-$sync.selectedApps = [System.Collections.Generic.List[string]]::new()
-$sync.selectedTweaks = [System.Collections.Generic.List[string]]::new()
-$sync.selectedFeatures = [System.Collections.Generic.List[string]]::new()
 
-$maxthreads = [int]$env:NUMBER_OF_PROCESSORS
-$hashVars = New-Object System.Management.Automation.Runspaces.SessionStateVariableEntry -ArgumentList 'sync', $sync, $null
-$initialState = [System.Management.Automation.Runspaces.InitialSessionState]::CreateDefault()
-$initialState.Variables.Add($hashVars)
-$sync.runspace = [runspacefactory]::CreateRunspacePool(1, $maxthreads, $initialState, $Host)
-$sync.runspace.Open()
-
+$sync.controls = @{}
 $sync.logLevel = if ($Verbose) { "Info" } else { "Success" }
 $script:appRoot = $PSScriptRoot
 
-. "$PSScriptRoot\modules\logger.ps1"
-. "$PSScriptRoot\modules\core.ps1"
-. "$PSScriptRoot\modules\theme.ps1"
+. "$PSScriptRoot\src\modules\logger.ps1"
+. "$PSScriptRoot\src\modules\dialog.ps1"
+. "$PSScriptRoot\src\modules\core.ps1"
+. "$PSScriptRoot\src\modules\theme.ps1"
 
-Show-HksUtilLogo
+# Load non-UI modules early for NoUI mode compatibility
+. "$PSScriptRoot\src\modules\install.ps1"
 
-$configPath = Join-Path $PSScriptRoot "config"
+$configPath = Join-Path $PSScriptRoot "src\config"
 Write-Log "Loading configs..." "Info"
 
-try { $sync.configs.themes = Get-Content (Join-Path $configPath "themes.json") -Raw -Encoding UTF8 | ConvertFrom-Json } catch { $sync.configs.themes = @{}; Write-Log "themes.json failed: $_" "Warn" }
-try { $sync.configs.apps = Get-Content (Join-Path $configPath "apps.json") -Raw -Encoding UTF8 | ConvertFrom-Json } catch { $sync.configs.apps = @{}; Write-Log "apps.json failed: $_" "Warn" }
-try { $sync.configs.tweaks = Get-Content (Join-Path $configPath "tweaks.json") -Raw -Encoding UTF8 | ConvertFrom-Json } catch { $sync.configs.tweaks = @{}; Write-Log "tweaks.json failed: $_" "Warn" }
-try { $sync.configs.dns = Get-Content (Join-Path $configPath "dns.json") -Raw -Encoding UTF8 | ConvertFrom-Json } catch { $sync.configs.dns = @{}; Write-Log "dns.json failed: $_" "Warn" }
-try { $sync.configs.preferences = Get-Content (Join-Path $configPath "preferences.json") -Raw -Encoding UTF8 | ConvertFrom-Json } catch { $sync.configs.preferences = @{}; Write-Log "preferences.json failed: $_" "Warn" }
-try { $sync.configs.features = Get-Content (Join-Path $configPath "features.json") -Raw -Encoding UTF8 | ConvertFrom-Json } catch { $sync.configs.features = @{}; Write-Log "features.json failed: $_" "Warn" }
+$configFiles = @{meta = @{}; themes = @{}; apps = @{}; dns = @{}; preferences = @{}; cleaner = @{}; legacy = @() }
+foreach ($key in $configFiles.Keys) {
+    $file = Join-Path $configPath "$key.json"
+    try { $sync.configs[$key] = Get-Content $file -Raw -Encoding UTF8 | ConvertFrom-Json } catch { $sync.configs[$key] = $configFiles[$key]; Write-Log "$key.json failed: $_" "Warn" }
+}
+if ($sync.configs.meta) {
+    if ($sync.configs.meta.version) { $sync.version = $sync.configs.meta.version }
+    if ($sync.configs.meta.build) { $sync.build = $sync.configs.meta.build }
+}
 Write-Log "Config files loaded." "Success"
+
+Show-HksUtilLogo
 
 if ($sync.noUI) {
     if ($Config -and $Apply) {
@@ -96,41 +94,17 @@ if ($sync.noUI) {
                 foreach ($id in $importJson.AppSelections) {
                     Write-Log "Headless install: $id" "Info"
                     winget install --id=$id --silent --accept-package-agreements --accept-source-agreements 2>&1 | Out-Null
+                    if ($LASTEXITCODE -ne 0) { Write-Log "Headless install failed: $id (exit $LASTEXITCODE)" "Error" }
                 }
             }
 
-            if ($importJson.TweakSelections) {
-                foreach ($tk in $importJson.TweakSelections) {
-                    $tweak = $null
-                    foreach ($g in $sync.configs.tweaks.PSObject.Properties.Name) {
-                        if ($sync.configs.tweaks.$g.PSObject.Properties.Name -contains $tk) { $tweak = $sync.configs.tweaks.$g.$tk; break }
+            if ($importJson.CleanerSelections) {
+                foreach ($ck in $importJson.CleanerSelections) {
+                    $cleaner = $null
+                    foreach ($g in $sync.configs.cleaner.PSObject.Properties.Name) {
+                        if ($sync.configs.cleaner.$g.PSObject.Properties.Name -contains $ck) { $cleaner = $sync.configs.cleaner.$g.$ck; break }
                     }
-                    if (-not $tweak) { continue }
-                    Write-Log "Headless tweak: $($tweak.content)" "Info"
-                    Save-OriginalValues -tweakKey $tk -tweak $tweak
-                    foreach ($svc in $tweak.services) {
-                        if ($svc.action -eq "stop_disable") { Stop-Service $svc.name -Force -ErrorAction SilentlyContinue; Set-Service $svc.name -StartupType Disabled -ErrorAction SilentlyContinue }
-                        if ($svc.action -eq "set_manual") { Set-Service $svc.name -StartupType Manual -ErrorAction SilentlyContinue }
-                    }
-                    foreach ($reg in $tweak.registry) {
-                        if (!(Test-Path $reg.path)) { New-Item $reg.path -Force | Out-Null }
-                        Set-ItemProperty $reg.path -Name $reg.name -Value $reg.value -Type $reg.type -Force
-                    }
-                    foreach ($pkg in $tweak.appx_packages) {
-                        Get-AppxPackage -Name $pkg -ErrorAction SilentlyContinue | Remove-AppxPackage
-                        Get-AppxProvisionedPackage -Online | Where-Object { $_.DisplayName -like $pkg } | Remove-AppxProvisionedPackage -Online
-                    }
-                    if ($tweak.script) { & ([scriptblock]::Create($tweak.script)) }
-                }
-            }
-
-            if ($importJson.FeatureSelections) {
-                foreach ($fk in $importJson.FeatureSelections) {
-                    $feature = $null
-                    foreach ($g in @("Features","Fixes")) {
-                        if ($sync.configs.features.$g.PSObject.Properties.Name -contains $fk) { $feature = $sync.configs.features.$g.$fk; break }
-                    }
-                    if ($feature -and $feature.script) { Write-Log "Headless feature: $($feature.content)" "Info"; & ([scriptblock]::Create($feature.script)) }
+                    if ($cleaner -and $cleaner.script) { Write-Log "Headless cleaner: $($cleaner.content)" "Info"; & ([scriptblock]::Create($cleaner.script)) }
                 }
             }
 
@@ -140,8 +114,7 @@ if ($sync.noUI) {
                     if (-not $pref) { continue }
                     $entries = if ($importJson.PreferenceStates.$pk) { $pref.registry_on } else { $pref.registry_off }
                     foreach ($reg in $entries) {
-                        if (!(Test-Path $reg.path)) { New-Item $reg.path -Force | Out-Null }
-                        Set-ItemProperty $reg.path -Name $reg.name -Value $reg.value
+                        Set-RegistryValue -Path $reg.path -Name $reg.name -Value $reg.value
                     }
                     Write-Log "Headless pref: $($pref.content) = $($importJson.PreferenceStates.$pk)" "Info"
                 }
@@ -149,13 +122,12 @@ if ($sync.noUI) {
 
             Write-Log "Headless apply complete." "Success"
         } catch { Write-Log "Headless apply failed: $_" "Error" }
-    } else { Write-Log "NoUI mode: use -Config <path> -Apply to apply." "Warn" }
-    $sync.runspace.Close(); $sync.runspace.Dispose()
+    } else { Write-Log "NoUI mode: use -Config <path> -Apply." "Warn" }
     pause; exit
 }
 
 try {
-    $xamlPath = Join-Path $PSScriptRoot "xaml\ui.xaml"
+    $xamlPath = Join-Path $PSScriptRoot "src\ui.xaml"
     $xamlContent = Get-Content $xamlPath -Raw -Encoding UTF8
     $xamlContent = $xamlContent -replace 'x:Name="([^"]+)"', 'Name="$1"'
     [xml]$xaml = $xamlContent
@@ -168,33 +140,43 @@ $sync.controls = @{}
 $xaml.SelectNodes("//*[@Name]") | ForEach-Object { $sync.controls[$_.Name] = $sync.window.FindName($_.Name) }
 foreach ($k in @($sync.controls.Keys)) { if (-not $sync.controls[$k]) { $sync.controls.Remove($k) } }
 
-Apply-Theme "dark"
+$buildSuffix = if ($sync.build) { " (build $($sync.build))" } else { "" }
+$sync.window.Title = "HksUtil v$($sync.version)$buildSuffix - Windows Optimizer"
+if ($sync.controls["TitleVersionText"]) { $sync.controls["TitleVersionText"].Text = "v$($sync.version)$buildSuffix" }
+Apply-Theme "light"
 if ($sync.controls["TitleText"]) { $sync.controls["TitleText"].Add_MouseLeftButtonDown({ $sync.window.DragMove() }) }
 
-. "$PSScriptRoot\modules\navigation.ps1"
-. "$PSScriptRoot\modules\tweaks.ps1"
-. "$PSScriptRoot\modules\search.ps1"
-. "$PSScriptRoot\modules\toolbar.ps1"
-. "$PSScriptRoot\modules\dns.ps1"
-. "$PSScriptRoot\modules\terminal.ps1"
-. "$PSScriptRoot\modules\utility.ps1"
-. "$PSScriptRoot\modules\build.ps1"
-. "$PSScriptRoot\modules\install.ps1"
-. "$PSScriptRoot\modules\features.ps1"
+Update-InstalledCache
+. "$PSScriptRoot\src\modules\navigation.ps1"
+. "$PSScriptRoot\src\modules\search.ps1"
+. "$PSScriptRoot\src\modules\toolbar.ps1"
+. "$PSScriptRoot\src\modules\dns.ps1"
+. "$PSScriptRoot\src\modules\utility.ps1"
+. "$PSScriptRoot\src\modules\build.ps1"
+. "$PSScriptRoot\src\modules\status.ps1"
+. "$PSScriptRoot\src\modules\cleaner.ps1"
+Register-InstallEvents
 
-if ($sync.controls["BtnClearSearch"]) { $sync.controls["BtnClearSearch"].Add_Click({ if ($sync.controls["SearchBox"]) { $sync.controls["SearchBox"].Text = ""; $sync.controls["SearchBox"].Focus() } }) }
 if ($sync.controls["BtnSelectAll"]) { $sync.controls["BtnSelectAll"].Add_Click({ foreach ($cb in $appCheckboxes) { if ($cb.Visibility -eq "Visible") { $cb.IsChecked = $true } }; Update-SelectedCount; Write-Log "All visible apps selected." "Info" }) }
 if ($sync.controls["BtnClearSelection"]) { $sync.controls["BtnClearSelection"].Add_Click({ foreach ($cb in $appCheckboxes) { $cb.IsChecked = $false }; Update-SelectedCount; Write-Log "Selection cleared." "Info" }) }
+if ($sync.controls["BtnCleanerSelectAll"]) { $sync.controls["BtnCleanerSelectAll"].Add_Click({ foreach ($cb in $cleanerCheckboxes) { if ($cb.Visibility -eq "Visible") { $cb.IsChecked = $true } }; Write-Log "All visible cleaner items selected." "Info" }) }
+if ($sync.controls["BtnCleanerClearSelection"]) { $sync.controls["BtnCleanerClearSelection"].Add_Click({ foreach ($cb in $cleanerCheckboxes) { $cb.IsChecked = $false }; Write-Log "Cleaner selection cleared." "Info" }) }
 if ($sync.controls["BtnCollapseAll"]) {
     $sync.controls["BtnCollapseAll"].Add_Click({
-        foreach ($cat in $script:categoryItems.Keys) { $script:categoryCollapsed[$cat] = $true; foreach ($item in $script:categoryItems[$cat]) { $item.Visibility = "Collapsed" } }
-        foreach ($panel in @($appPanels)) { foreach ($child in $panel.Children) { if ($child -is [System.Windows.Controls.TextBlock] -and $script:categoryItems.ContainsKey($child.Tag)) { $child.Text = "+ $($child.Tag.ToUpper()) ($($script:categoryItems[$child.Tag].Count))" } } }
+        foreach ($cat in $script:categoryItems.Keys) {
+            $script:categoryCollapsed[$cat] = $true
+            if ($script:categoryGrids[$cat]) { $script:categoryGrids[$cat].Visibility = "Collapsed" }
+        }
+        foreach ($panel in @($sync.controls["AppPanel"])) { foreach ($child in $panel.Children) { if ($child -is [System.Windows.Controls.TextBlock] -and $script:categoryItems.ContainsKey($child.Tag)) { $child.Text = "+ $($child.Tag.ToUpper()) ($($script:categoryItems[$child.Tag].Count))" } } }
     })
 }
 if ($sync.controls["BtnExpandAll"]) {
     $sync.controls["BtnExpandAll"].Add_Click({
-        foreach ($cat in $script:categoryItems.Keys) { $script:categoryCollapsed[$cat] = $false; foreach ($item in $script:categoryItems[$cat]) { $item.Visibility = "Visible" } }
-        foreach ($panel in @($appPanels)) { foreach ($child in $panel.Children) { if ($child -is [System.Windows.Controls.TextBlock] -and $script:categoryItems.ContainsKey($child.Tag)) { $child.Text = "- $($child.Tag.ToUpper()) ($($script:categoryItems[$child.Tag].Count))" } } }
+        foreach ($cat in $script:categoryItems.Keys) {
+            $script:categoryCollapsed[$cat] = $false
+            if ($script:categoryGrids[$cat]) { $script:categoryGrids[$cat].Visibility = "Visible" }
+        }
+        foreach ($panel in @($sync.controls["AppPanel"])) { foreach ($child in $panel.Children) { if ($child -is [System.Windows.Controls.TextBlock] -and $script:categoryItems.ContainsKey($child.Tag)) { $child.Text = "- $($child.Tag.ToUpper()) ($($script:categoryItems[$child.Tag].Count))" } } }
     })
 }
 if ($sync.controls["ChkShowInstalled"]) {
@@ -206,6 +188,7 @@ if ($sync.controls["ChkShowInstalled"]) {
     $sync.controls["ChkShowInstalled"].Add_Unchecked({ Apply-Filters })
 }
 
+Update-AppBadges
 Switch-Page "Install"
 Set-Status "Ready"
 Update-InstalledCache
@@ -220,9 +203,7 @@ if ($Config -and -not $Apply) {
         if ($importJson) {
             if ($importJson.AppSelections) { foreach ($cb in $appCheckboxes) { $cb.IsChecked = @($importJson.AppSelections) -contains $cb.Tag } }
             if ($importJson.CheckedApps) { foreach ($appEntry in $importJson.CheckedApps) { $cb = $appCheckboxes | Where-Object { $_.Tag -eq $appEntry.Name }; if ($cb) { $cb.IsChecked = $true } } }
-            if ($importJson.TweakSelections) { foreach ($cb in $tweakCheckboxes) { $cb.IsChecked = @($importJson.TweakSelections) -contains $cb.Tag } }
-            if ($importJson.CheckedTweaks) { foreach ($tweakEntry in $importJson.CheckedTweaks) { $cb = $tweakCheckboxes | Where-Object { $_.Tag -eq $tweakEntry.Name }; if ($cb) { $cb.IsChecked = $true } } }
-            if ($importJson.FeatureSelections) { foreach ($cb in $featuresCheckboxes) { $cb.IsChecked = @($importJson.FeatureSelections) -contains $cb.Tag } }
+            if ($importJson.CleanerSelections) { foreach ($cb in $cleanerCheckboxes) { $cb.IsChecked = @($importJson.CleanerSelections) -contains $cb.Tag } }
             if ($importJson.PreferenceStates) { foreach ($pk in $importJson.PreferenceStates.PSObject.Properties.Name) { if ($prefCheckboxes[$pk]) { $prefCheckboxes[$pk].IsChecked = $importJson.PreferenceStates.$pk -eq $true } } }
             Update-SelectedCount; Write-Log "Config loaded from $Config" "Success"
         }
@@ -230,8 +211,6 @@ if ($Config -and -not $Apply) {
 }
 
 $sync.window.Add_Closing({
-    $sync.runspace.Close()
-    $sync.runspace.Dispose()
     [System.GC]::Collect()
 })
 

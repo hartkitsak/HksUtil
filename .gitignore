@@ -12,5 +12,15 @@ app.ps1.bak
 .vscode/
 .idea/
 .vs/
-hksutil.ps1
-hksutil.ps1
+config/
+modules/
+xaml/
+docs/
+functions/
+tests/
+.github/
+LICENSE
+README.md
+install.ps1
+scripts/Compile.ps1
+scripts/start.ps1
