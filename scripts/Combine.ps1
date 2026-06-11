@@ -28,7 +28,8 @@ function ConvertTo-PSCode {
     } elseif ($Obj -is [int] -or $Obj -is [long] -or $Obj -is [double]) {
         return $Obj.ToString()
     } elseif ($Obj -is [string]) {
-        return '"' + $Obj.Replace('"', '`"') + '"'
+        $escaped = $Obj.Replace("'", "''")
+        return "'$escaped'"
     } elseif ($null -eq $Obj) {
         return '$null'
     } else {

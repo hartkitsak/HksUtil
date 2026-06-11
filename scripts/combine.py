@@ -26,8 +26,8 @@ def json_to_pscode(obj):
     elif isinstance(obj, int) or isinstance(obj, float):
         return str(obj)
     elif isinstance(obj, str):
-        s = obj.replace('"', '`"')
-        return f'"{s}"'
+        s = obj.replace("'", "''")
+        return f"'{s}'"
     elif obj is None:
         return '$null'
     else:
