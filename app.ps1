@@ -38,7 +38,8 @@ if (-not $isAdmin) {
     if ($Noui) { $argList += "-Noui" }
     if ($Apply) { $argList += "-Apply" }
     if ($Verbose) { $argList += "-Verbose" }
-    $scriptCmd = if ($PSCommandPath) {
+    $isTemp = $PSCommandPath -and ($PSCommandPath -like "$($env:TEMP)*")
+    $scriptCmd = if ($PSCommandPath -and -not $isTemp) {
         $escapedPath = $PSCommandPath.Replace("'", "''")
         "& { & '$escapedPath' $($argList -join ' ') }"
     } else { "& { `$f = Join-Path `$env:TEMP 'install.ps1'; Invoke-WebRequest -Uri 'https://raw.githubusercontent.com/hartkitsak/HksUtil/main/install.ps1' -OutFile `$f -UseBasicParsing; & `$f $($argList -join ' '); Remove-Item `$f -Force }" }

@@ -6,4 +6,3 @@ try {
     Write-Host "Running HksUtil..." -ForegroundColor Cyan
     & $out @args
 } catch { Write-Host "Failed to download/run HksUtil: $_" -ForegroundColor Red; pause; exit }
-finally { if (Test-Path $out) { Remove-Item $out -Force -ErrorAction SilentlyContinue } }
